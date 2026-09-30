@@ -61,7 +61,9 @@ struct VC4Base {
 
     struct Size             vc4_DispSize;
 
-    APTR                    vc4_VPU_CopyBlock;
+    ULONG                   vc4_VPUCopyBlock;
+    ULONG                   vc4_VPUCopyRect;
+    ULONG                   vc4_VPUCopyRectRev;
 
     ULONG                   vc4_ActivePlane;
     ULONG                   vc4_FreePlane;

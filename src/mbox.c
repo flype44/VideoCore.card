@@ -341,6 +341,37 @@ uint32_t upload_code(const void * code, uint32_t code_size, struct VC4Base *VC4B
     return phys_addr;
 }
 
+void call_code(uint32_t addr, uint32_t arg0, uint32_t arg1, uint32_t arg2, uint32_t arg3,
+               uint32_t arg4, uint32_t arg5, struct VC4Base *VC4Base)
+{
+    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    ULONG *FBReq = VC4Base->vc4_Request;
+    int c = 1;
+    ULONG len;
+
+    FBReq[c++] = 0;
+    FBReq[c++] = LE32(0x00030010);
+    FBReq[c++] = LE32(28);
+    FBReq[c++] = 0;
+    FBReq[c++] = LE32(addr); // code address
+    FBReq[c++] = LE32(arg0); // r0
+    FBReq[c++] = LE32(arg1); // r1
+    FBReq[c++] = LE32(arg2); // r2
+    FBReq[c++] = LE32(arg3); // r3
+    FBReq[c++] = LE32(arg4); // r4
+    FBReq[c++] = LE32(arg5); // r5
+
+    len = 4*c;
+
+    FBReq[c++] = 0;
+    FBReq[0] = LE32(len);
+
+    CachePreDMA(FBReq, &len, 0);
+    mbox_send(8, (ULONG)FBReq, VC4Base);
+    mbox_recv(8, VC4Base);
+    CachePostDMA(FBReq, &len, 0);
+}
+
 ULONG enable_unicam_domain(struct VC4Base *VC4Base)
 {
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;

@@ -26,7 +26,6 @@
 #include "boardinfo.h"
 #include "emu68-vc4.h"
 #include "mbox.h"
-#include "vpu/block_copy.h"
 #include "support.h"
 #include "vc4.h"
 #include "vc6.h"
@@ -289,12 +288,6 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VC4Base *V
         }
     }
 
-#if 0
-    VC4Base->vc4_VPU_CopyBlock = (APTR)upload_code(vpu_block_copy, sizeof(vpu_block_copy), VC4Base);
-
-    RawDoFmt("[vc4] VPU CopyBlock pointer at %08lx\n", &VC4Base->vc4_VPU_CopyBlock, (APTR)putch, NULL);
-#endif
-
 //UNICAM
 
     APTR UnicamBase = OpenResource("unicam.resource");
@@ -554,7 +547,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         // Additional functions for "blitter" acceleration and vblank handling
         //bi->SetInterrupt = (void *)NULL;
 
-        //bi->WaitBlitter = (void *)NULL;
+        bi->WaitBlitter = (void *)VC6_WaitBlitter;
 
         //bi->ScrollPlanar = (void *)NULL;
         //bi->UpdatePlanar = (void *)NULL;
@@ -562,13 +555,13 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         //bi->BlitPlanar2Chunky = (void *)BlitPlanar2Chunky;
         //bi->BlitPlanar2Direct = (void *)BlitPlanar2Direct;
 
-        //bi->FillRect = (void *)FillRect;
+        bi->FillRect = (void *)VC6_FillRect;
         //bi->InvertRect = (void *)InvertRect;
-        //bi->BlitRect = (void *)BlitRect;
+        bi->BlitRect = (void *)VC6_BlitRect;
         //bi->BlitTemplate = (void *)BlitTemplate;
         //bi->BlitPattern = (void *)BlitPattern;
         //bi->DrawLine = (void *)DrawLine;
-        //bi->BlitRectNoMaskComplete = (void *)BlitRectNoMaskComplete;
+        bi->BlitRectNoMaskComplete = (void *)VC6_BlitRectNoMaskComplete;
         //bi->EnableSoftSprite = (void *)NULL;
 
         //bi->AllocCardMemAbs = (void *)NULL;
@@ -577,6 +570,9 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         //bi->WriteYUVRect = (void *)NULL;
         //bi->GetVSyncState = (void *)GetVSyncState;
         bi->GetVBeamPos = (void *)VC6_GetVBeamPos;
+
+        /* VC6 only: enable the 2D acceleration, users can still disable it with NOBLITTER */
+        bi->Flags |= BIF_BLITTER;
         //bi->SetDPMSLevel = (void *)NULL;
         //bi->ResetChip = (void *)NULL;
         //bi->GetFeatureAttrs = (void *)NULL;

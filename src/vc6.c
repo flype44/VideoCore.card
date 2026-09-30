@@ -18,6 +18,7 @@
 #include "boardinfo.h"
 #include "mbox.h"
 #include "buddyalloc.h"
+#include "vpu.h"
 
 UWORD VC6_CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD width, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
@@ -112,6 +113,27 @@ static const ULONG mode_table[] = {
     [RGBFB_B5G5R5PC] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB555) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR),
 
     [RGBFB_CLUT] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_PALETTE) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR)
+};
+
+static const UBYTE bpp_table[] = {
+    [RGBFB_A8R8G8B8] = 4,
+    [RGBFB_A8B8G8R8] = 4,
+    [RGBFB_B8G8R8A8] = 4,
+    [RGBFB_R8G8B8A8] = 4,
+
+    [RGBFB_R8G8B8] = 3,
+    [RGBFB_B8G8R8] = 3,
+
+    [RGBFB_R5G6B5PC] = 2,
+    [RGBFB_R5G5B5PC] = 2,
+
+    [RGBFB_R5G6B5] = 2,
+    [RGBFB_R5G5B5] = 2,
+
+    [RGBFB_B5G6R5PC] = 2,
+    [RGBFB_B5G5R5PC] = 2,
+
+    [RGBFB_CLUT] = 1
 };
 
 UWORD VC6_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
@@ -857,6 +879,61 @@ void VC6_WaitVerticalSync(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL toggle,
 
     // Wait until current vbeampos is lower than the one obtained above
     do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VC4Base->vc4_DispSize.height);
+}
+
+/* WaitBlitter - VPU calls are synchronous (mailbox), there is nothing to wait for */
+void VC6_WaitBlitter(REGARG(struct BoardInfo *b, "a0"))
+{
+}
+
+/* FillRect - not accelerated yet, let Picasso96 do it */
+void VC6_FillRect(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *r, "a1"),
+                  REGARG(WORD x, "d0"), REGARG(WORD y, "d1"),
+                  REGARG(WORD w, "d2"), REGARG(WORD h, "d3"),
+                  REGARG(ULONG color, "d4"), REGARG(UBYTE mask, "d5"),
+                  REGARG(RGBFTYPE format, "d7"))
+{
+    b->FillRectDefault(b, r, x, y, w, h, color, mask, format);
+}
+
+/* BlitRect - copy a rectangle inside the bitmap using the VPU */
+void VC6_BlitRect(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *r, "a1"),
+                  REGARG(WORD x, "d0"), REGARG(WORD y, "d1"),
+                  REGARG(WORD dx, "d2"), REGARG(WORD dy, "d3"),
+                  REGARG(WORD w, "d4"), REGARG(WORD h, "d5"),
+                  REGARG(UBYTE mask, "d6"), REGARG(RGBFTYPE format, "d7"))
+{
+    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
+    ULONG bpp = bpp_table[format];
+    ULONG stride = r->BytesPerRow;
+    ULONG src = 0xc0000000 + (ULONG)r->Memory + y * stride + x * bpp;
+    ULONG dst = 0xc0000000 + (ULONG)r->Memory + dy * stride + dx * bpp;
+    ULONG height = h;
+    ULONG width = w * bpp;
+
+    /* Only bitmaps located in the memory visible to the VPU can be handled */
+    if ((ULONG)r->Memory < 0x01000000 || (ULONG)r->Memory >= 0x40000000)
+    {
+        b->BlitRectDefault(b, r, x, y, dx, dy, w, h, mask, format);
+        return;
+    }
+
+    /* The VPU copy knows nothing about masks */
+    if (mask != 0xff || VPU_RectCopy((APTR)src, (APTR)dst, width, height, stride - width, stride - width, VC4Base) == 0)
+    {
+        b->BlitRectDefault(b, r, x, y, dx, dy, w, h, mask, format);
+    }
+}
+
+/* BlitRectNoMaskComplete - not accelerated yet, let Picasso96 do it */
+void VC6_BlitRectNoMaskComplete(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *rs, "a1"),
+                                REGARG(struct RenderInfo *rt, "a2"),
+                                REGARG(WORD x, "d0"), REGARG(WORD y, "d1"),
+                                REGARG(WORD dx, "d2"), REGARG(WORD dy, "d3"),
+                                REGARG(WORD w, "d4"), REGARG(WORD h, "d5"),
+                                REGARG(UBYTE minterm, "d6"), REGARG(RGBFTYPE format, "d7"))
+{
+    b->BlitRectNoMaskCompleteDefault(b, rs, rt, x, y, dx, dy, w, h, minterm, format);
 }
 
 /* Unicam DisplayList */
