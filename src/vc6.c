@@ -925,6 +925,57 @@ void VC6_BlitRect(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *r
     }
 }
 
+/* Inverts 8 pixels, the mask is the literal of the bits to invert. A single read of the video
+   memory is slow, eight of them in one burst are not. */
+#define EORI(n, m) "eori.l #" m ",%%d" #n "\n\t"
+#define INVERT8(p, m) asm volatile ( \
+    "movem.l (%0),%%d0-%%d7\n\t" \
+    EORI(0, m) EORI(1, m) EORI(2, m) EORI(3, m) EORI(4, m) EORI(5, m) EORI(6, m) EORI(7, m) \
+    "movem.l %%d0-%%d7,(%0)" \
+    : : "a"(p) : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "cc", "memory")
+
+#define INVERT_RECT(row, stride, w, h, m, value) \
+    for (; h > 0; h--) \
+    { \
+        ULONG *p = row; \
+        WORD n = w; \
+        for (; n >= 8; n -= 8, p += 8) \
+            INVERT8(p, m); \
+        for (; n > 0; n--) \
+            *p++ ^= value; \
+        row = (ULONG *)((ULONG)row + stride); \
+    }
+
+/* Inverts the colour bits of the pixels of a rectangle of 32 bit pixels, like Picasso96 the
+   alpha byte is left alone: the first byte of the pixel for A8R8G8B8 and A8B8G8R8, the last one
+   for B8G8R8A8 and R8G8B8A8 */
+static void invert_rect_32(struct RenderInfo *r, WORD x, WORD y, WORD w, WORD h, RGBFTYPE format)
+{
+    ULONG stride = r->BytesPerRow;
+    ULONG *row = (ULONG *)((ULONG)r->Memory + y * stride + x * 4);
+
+    if (format == RGBFB_A8R8G8B8 || format == RGBFB_A8B8G8R8)
+    {
+        INVERT_RECT(row, stride, w, h, "0x00ffffff", 0x00ffffffUL)
+    }
+    else
+    {
+        INVERT_RECT(row, stride, w, h, "0xffffff00", 0xffffff00UL)
+    }
+}
+
+/* InvertRect - 32 bit pixels only, the other formats are left to Picasso96 */
+void VC6_InvertRect(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *r, "a1"),
+                    REGARG(WORD x, "d0"), REGARG(WORD y, "d1"),
+                    REGARG(WORD w, "d2"), REGARG(WORD h, "d3"),
+                    REGARG(UBYTE mask, "d4"), REGARG(RGBFTYPE format, "d7"))
+{
+    if (bpp_table[format] == 4 && mask == 0xff)
+        invert_rect_32(r, x, y, w, h, format);
+    else
+        b->InvertRectDefault(b, r, x, y, w, h, mask, format);
+}
+
 /* BlitRectNoMaskComplete - not accelerated yet, let Picasso96 do it */
 void VC6_BlitRectNoMaskComplete(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *rs, "a1"),
                                 REGARG(struct RenderInfo *rt, "a2"),
