@@ -977,12 +977,19 @@ void VC6_InvertRect(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo 
         b->InvertRectDefault(b, r, x, y, w, h, mask, format);
 }
 
-/* Stores 8 pixels, taken from two entries of four pixels of a table, in one burst */
+/* Stores 8 pixels, taken from two entries of four pixels of a table, in two bursts of 4. Only d0 to d3
+   are used: with all of d0 to d7 GCC has no register left for the loop and uses the stack. */
 #define PUT8(p, a, b) asm volatile ( \
     "movem.l (%1),%%d0-%%d3\n\t" \
-    "movem.l (%2),%%d4-%%d7\n\t" \
-    "movem.l %%d0-%%d7,(%0)" \
-    : : "a"(p), "a"(a), "a"(b) : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "memory")
+    "movem.l %%d0-%%d3,(%0)\n\t" \
+    "movem.l (%2),%%d0-%%d3\n\t" \
+    "movem.l %%d0-%%d3,16(%0)" \
+    : : "a"(p), "a"(a), "a"(b) : "d0", "d1", "d2", "d3", "memory")
+
+/* The 8 bits at the bit offset off (0 to 7) of the byte string at ptr, in one instruction: much cheaper
+   than two byte reads, a shift and a mask */
+#define BFEXTU8(v, ptr, off) \
+    asm("bfextu (%1){%2:8},%0" : "=d"(v) : "a"(ptr), "d"(off), "m"(*(const UBYTE (*)[2])(ptr)) : "cc")
 
 /* BlitTemplate for 32 bit pixels in the draw modes which write every pixel, JAM2 (FgPen for the bits
    which are set, BgPen for the others) and JAM2 | INVERSVID (the other way round). The template has
@@ -1032,16 +1039,18 @@ static int blit_template_32(struct RenderInfo *r, struct Template *t, WORD x, WO
     {
         const UBYTE *s = (const UBYTE *)t->Memory + row * t->BytesPerRow + (t->XOffset >> 3);
         ULONG *p = (ULONG *)((ULONG)r->Memory + (y + row) * stride + x * 4);
-        UBYTE sh = t->XOffset & 7;
+        ULONG sh = t->XOffset & 7;
         WORD n8 = w >= 16 ? w >> 3 : 0;
         WORD rem = w - 8 * n8;
         WORD g, k;
 
         for (g = 0; g < n8; g++, p += 8)
         {
-            UBYTE ub = sh ? (((s[g] << 8) | s[g + 1]) >> (8 - sh)) : s[g];
+            ULONG v;
 
-            PUT8(p, tab[ub >> 4], tab[ub & 15]);
+            BFEXTU8(v, s + g, sh);
+
+            PUT8(p, tab[v >> 4], tab[v & 15]);
         }
 
         /* The last pixels, or the whole row when it is short, one by one */
