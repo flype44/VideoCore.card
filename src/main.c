@@ -558,7 +558,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         bi->FillRect = (void *)VC6_FillRect;
         bi->InvertRect = (void *)VC6_InvertRect;
         bi->BlitRect = (void *)VC6_BlitRect;
-        //bi->BlitTemplate = (void *)BlitTemplate;
+        bi->BlitTemplate = (void *)VC6_BlitTemplate;
         //bi->BlitPattern = (void *)BlitPattern;
         //bi->DrawLine = (void *)DrawLine;
         bi->BlitRectNoMaskComplete = (void *)VC6_BlitRectNoMaskComplete;

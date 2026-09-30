@@ -6,6 +6,7 @@
 #include <proto/unicam.h>
 #include <proto/mathieeesingbas.h>
 
+#include <graphics/rastport.h>
 #include <hardware/cia.h>
 #include <common/compiler.h>
 #include <resources/unicam.h>
@@ -974,6 +975,96 @@ void VC6_InvertRect(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo 
         invert_rect_32(r, x, y, w, h, format);
     else
         b->InvertRectDefault(b, r, x, y, w, h, mask, format);
+}
+
+/* Stores 8 pixels, taken from two entries of four pixels of a table, in one burst */
+#define PUT8(p, a, b) asm volatile ( \
+    "movem.l (%1),%%d0-%%d3\n\t" \
+    "movem.l (%2),%%d4-%%d7\n\t" \
+    "movem.l %%d0-%%d7,(%0)" \
+    : : "a"(p), "a"(a), "a"(b) : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "memory")
+
+/* BlitTemplate for 32 bit pixels in the draw modes which write every pixel, JAM2 (FgPen for the bits
+   which are set, BgPen for the others) and JAM2 | INVERSVID (the other way round). The template has
+   one bit per pixel, the most significant bit first, and the first XOffset bits of every row are
+   skipped. Returns 0 if the draw mode is not handled.
+   JAM1 is left to Picasso96: it only writes the pixels of the bits which are set, which means scattered
+   writes, about 100 ns each in the video memory, and this is no faster than the default code. */
+static int blit_template_32(struct RenderInfo *r, struct Template *t, WORD x, WORD y, WORD w, WORD h)
+{
+    ULONG stride = r->BytesPerRow;
+    ULONG c1, c0;
+    /* The stack is aligned on 2 bytes only, movem.l reads of a table which is not aligned are slow */
+    ULONG tabmem[16 * 4 + 3];
+    ULONG (*tab)[4] = (ULONG (*)[4])(((ULONG)tabmem + 15) & ~15UL);
+    WORD row;
+
+    switch (t->DrawMode)
+    {
+        case JAM2:
+            c1 = t->FgPen;
+            c0 = t->BgPen;
+            break;
+
+        case JAM2 | INVERSVID:
+            c1 = t->BgPen;
+            c0 = t->FgPen;
+            break;
+
+        default:
+            return 0;
+    }
+
+    if (w <= 0 || h <= 0)
+        return 1;
+
+    /* The pixels of a nibble come from a table, a burst stores 8 of them */
+    if (w >= 16)
+    {
+        ULONG n, j;
+
+        for (n = 0; n < 16; n++)
+            for (j = 0; j < 4; j++)
+                tab[n][j] = (n & (8 >> j)) ? c1 : c0;
+    }
+
+    for (row = 0; row < h; row++)
+    {
+        const UBYTE *s = (const UBYTE *)t->Memory + row * t->BytesPerRow + (t->XOffset >> 3);
+        ULONG *p = (ULONG *)((ULONG)r->Memory + (y + row) * stride + x * 4);
+        UBYTE sh = t->XOffset & 7;
+        WORD n8 = w >= 16 ? w >> 3 : 0;
+        WORD rem = w - 8 * n8;
+        WORD g, k;
+
+        for (g = 0; g < n8; g++, p += 8)
+        {
+            UBYTE ub = sh ? (((s[g] << 8) | s[g + 1]) >> (8 - sh)) : s[g];
+
+            PUT8(p, tab[ub >> 4], tab[ub & 15]);
+        }
+
+        /* The last pixels, or the whole row when it is short, one by one */
+        for (k = 0; k < rem; k++)
+        {
+            ULONG idx = sh + 8 * n8 + k;
+
+            p[k] = ((s[idx >> 3] >> (7 - (idx & 7))) & 1) ? c1 : c0;
+        }
+    }
+
+    return 1;
+}
+
+/* BlitTemplate - 32 bit pixels with a full plane mask only, the other cases are left to Picasso96 */
+void VC6_BlitTemplate(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *r, "a1"),
+                      REGARG(struct Template *t, "a2"),
+                      REGARG(WORD x, "d0"), REGARG(WORD y, "d1"),
+                      REGARG(WORD w, "d2"), REGARG(WORD h, "d3"),
+                      REGARG(UBYTE mask, "d4"), REGARG(RGBFTYPE format, "d7"))
+{
+    if (bpp_table[format] != 4 || mask != 0xff || blit_template_32(r, t, x, y, w, h) == 0)
+        b->BlitTemplateDefault(b, r, t, x, y, w, h, mask, format);
 }
 
 /* BlitRectNoMaskComplete - not accelerated yet, let Picasso96 do it */
