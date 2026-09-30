@@ -813,6 +813,25 @@ UWORD SetDisplay(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
     return 1;
 }
 
+void SetDPMSLevel(REGARG(struct BoardInfo *b, "a0"), REGARG(ULONG level, "d0"))
+{
+    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
+    if (0)
+    {
+        bug("[VC4] SetDPMSLevel(%ld)\n", level);
+    }
+
+    /* display power on or off */
+    BOOL ret = set_display_power(VC4Base->vc4_DisplayID, 
+        (level == DPMS_OFF) ? 0 : 1, VC4Base);
+
+    /* display power debug */
+    if (0)
+    {
+        bug("[VC4] set_display_power(display_id: %ld, state: %ld): %ld\n", 
+            VC4Base->vc4_DisplayID, (level == DPMS_OFF) ? 0 : 1, ret);
+    }
+}
 
 LONG ResolvePixelClock(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo *mode_info, "a1"),
                        REGARG(ULONG pixel_clock, "d0"), REGARG(RGBFTYPE format, "d7"))

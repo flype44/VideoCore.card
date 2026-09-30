@@ -112,6 +112,10 @@ struct VC4Base {
     ULONG                   vc4_ScalingKernel;
     ULONG                   vc4_UnityKernel;
     ULONG                   vc4_UnicamKernel;
+
+    BOOL                    vc4_UseDPMS;
+    LONG                    vc4_DisplayID;
+    ULONG                   vc4_DisplayNum;
 };
 
 void bug(const char * restrict format, ...);

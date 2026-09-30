@@ -708,6 +708,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     VC4Base->vc4_Kernel_B = 0x3e800000; // 0.25
     VC4Base->vc4_Kernel_C = 0x3f400000; // 0.75
     VC4Base->vc4_IntegerScaler = 0;
+    VC4Base->vc4_UseDPMS = FALSE;
 
     APTR UnicamBase = VC4Base->vc4_UnicamBase;
 
@@ -910,6 +911,38 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
             {
                 VC4Base->vc4_IntegerScaler = 1;
             }
+        }
+        else if (_strcmp(tt, "VC4_DPMS") == 0)
+        {
+            /* Expose DPMS support to Picasso96, 
+             * using the mailbox display power tag */
+            VC4Base->vc4_UseDPMS = TRUE;
+        }
+    }
+
+    /* initialize the Picasso96 "DPMS" support */
+    if (VC4Base->vc4_UseDPMS)
+    {
+        /* obtain the RPi primary display id, or -1 if not supported by the RPi firmware.
+         * 
+         * +---------+----------------+------------+
+         * | display | display_number | display_id |
+         * +---------+----------------+------------+
+         * | hdmi-0  |            0UL |         2L | primary hdmi
+         * | hdmi-1  |            1UL |         7L | secondary hdmi
+         * +---------+----------------+------------+
+         */
+        
+        /* obtain the primary hdmi display num */
+        VC4Base->vc4_DisplayNum = 0UL;
+        
+        /* obtain the primary hdmi display id */
+        VC4Base->vc4_DisplayID = get_display_id(
+            VC4Base->vc4_DisplayNum, VC4Base);
+        
+        /* attach the Picasso96 method if the display id is valid */
+        if (VC4Base->vc4_DisplayID >= 0) {
+            bi->SetDPMSLevel = (void *)SetDPMSLevel;
         }
     }
 
