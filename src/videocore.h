@@ -32,6 +32,14 @@ struct Size {
     UWORD height;
 };
 
+/* The vertical blank interrupt of a display, see vblank.c. One per display: HDMI0 and HDMI1 each have their own. */
+struct VBlank {
+    struct Library *       Gic;                 // gic400.library, open for as long as the interrupt is registered
+    ULONG                  Irq;                 // GIC interrupt id
+    struct Interrupt *     Interrupt;           // what was registered with it, to take it out again
+    volatile ULONG         Count;               // interrupts seen
+};
+
 enum SwitchMode {
     None = 0,
     CTS,
@@ -74,7 +82,7 @@ struct VideoCoreBase {
     UBYTE                   vc_UseKernel;
     UBYTE                   vc_SpriteAlpha;
     UBYTE                   vc_SpriteVisible;
-    volatile ULONG          vc_VBlankCount;     // vertical blank interrupts seen, see vblank.c
+    struct VBlank           vc_VBlank;
 
     ULONG                   vc_ScaleX;
     ULONG                   vc_ScaleY;

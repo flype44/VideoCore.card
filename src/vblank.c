@@ -116,7 +116,7 @@ static ULONG VBlank_Interrupt(REGARG(struct BoardInfo *bi, "a1"))
         return 0;
 
     PV_Write(PV_INTSTAT, PV_INT_VFP_START);     /* write 1 to clear */
-    VideoCoreBase->vc_VBlankCount++;
+    VideoCoreBase->vc_VBlank.Count++;
 
     /* Nobody waits and nothing is double buffered: switch the interrupt off until SetInterrupt() is called */
     if ((bi->WaitQ.mlh_Head == NULL || bi->WaitQ.mlh_Head->mln_Succ == NULL) && bi->DoubleBufferList == NULL)
@@ -198,16 +198,16 @@ BOOL VBlank_Init(struct BoardInfo *bi)
        the handler switches the source off by itself afterwards. A frame is 17 ms, the register reads are the clock
        of this wait and the limit is a few frames long. If nothing comes, undo everything and stay on the polling
        of WaitVerticalSync(). */
-    VideoCoreBase->vc_VBlankCount = 0;
+    VideoCoreBase->vc_VBlank.Count = 0;
     PV_Write(PV_INTSTAT, PV_INT_VFP_START);
     PV_Write(PV_INTEN, PV_INT_VFP_START);
 
-    for (ULONG n = 0; n < VBLANK_TEST_READS && VideoCoreBase->vc_VBlankCount == 0; n++)
+    for (ULONG n = 0; n < VBLANK_TEST_READS && VideoCoreBase->vc_VBlank.Count == 0; n++)
         (void)PV_Read(PV_INTSTAT);
 
     PV_Write(PV_INTEN, 0);
 
-    if (VideoCoreBase->vc_VBlankCount == 0)
+    if (VideoCoreBase->vc_VBlank.Count == 0)
     {
         bug("[VC] VBlank: no interrupt %ld, staying on polling\n", irq);
         GIC_RemIntServerEx(gic, irq, &bi->HardInterrupt);
@@ -215,12 +215,31 @@ BOOL VBlank_Init(struct BoardInfo *bi)
         return FALSE;
     }
 
-    /* The last step: tell rtg.library */
+    /* The last step: tell rtg.library. gic400.library stays open for as long as the driver lives. */
+    VideoCoreBase->vc_VBlank.Gic = gic;
+    VideoCoreBase->vc_VBlank.Irq = irq;
+    VideoCoreBase->vc_VBlank.Interrupt = &bi->HardInterrupt;
+
     bi->SetInterrupt = (void *)VBlank_SetInterrupt;
     bi->Flags |= BIF_VBLANKINTERRUPT;
 
     bug("[VC] VBlank: interrupt %ld of the pixelvalve of HDMI0\n", irq);
 
-    /* gic400.library stays open for as long as the driver lives */
     return TRUE;
+}
+
+void VBlank_Exit(struct VideoCoreBase *VideoCoreBase)
+{
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
+    struct VBlank *vblank = &VideoCoreBase->vc_VBlank;
+
+    if (vblank->Gic == NULL)
+        return;
+
+    PV_Write(PV_INTEN, 0);
+    GIC_RemIntServerEx(vblank->Gic, vblank->Irq, vblank->Interrupt);
+    CloseLibrary(vblank->Gic);
+
+    vblank->Gic = NULL;
+    vblank->Interrupt = NULL;
 }

@@ -15,4 +15,8 @@
 */
 BOOL VBlank_Init(struct BoardInfo *bi);
 
+/* Takes the interrupt out again: the source is switched off, the handler removed, gic400.library closed. Does
+   nothing when VBlank_Init() did not set it up. */
+void VBlank_Exit(struct VideoCoreBase *VideoCoreBase);
+
 #endif /* _VBLANK_H */

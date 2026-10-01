@@ -504,6 +504,9 @@ static ULONG ExpungeLib(REGARG(struct VideoCoreBase *VideoCoreBase, "a6"))
 
     if (VideoCoreBase->vc_LibNode.LibBase.lib_OpenCnt == 0)
     {
+        /* The interrupt must not outlive the memory it points to */
+        VBlank_Exit(VideoCoreBase);
+
         /* Remove library from Exec's list */
         Remove(&VideoCoreBase->vc_LibNode.LibBase.lib_Node);
 
