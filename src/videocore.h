@@ -74,6 +74,7 @@ struct VideoCoreBase {
     UBYTE                   vc_UseKernel;
     UBYTE                   vc_SpriteAlpha;
     UBYTE                   vc_SpriteVisible;
+    volatile ULONG          vc_VBlankCount;     // vertical blank interrupts seen, see vblank.c
 
     ULONG                   vc_ScaleX;
     ULONG                   vc_ScaleY;

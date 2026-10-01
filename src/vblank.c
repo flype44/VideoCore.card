@@ -33,6 +33,9 @@
 
 #define GIC400_NAME         "gic400.library"
 
+/* Reads of the pixelvalve while waiting for the first interrupt: about 20 ms are enough, this is a few frames */
+#define VBLANK_TEST_READS   1000000
+
 static inline ULONG PV_Read(ULONG reg)
 {
     return LE32(*(volatile ULONG *)(PV2_BASE + reg));
@@ -43,8 +46,13 @@ static inline void PV_Write(ULONG reg, ULONG value)
     wr32le((volatile uint32_t *)(PV2_BASE + reg), value);
 }
 
-/* gic400.library, version 1.4 of the ROM of Emu68 has what is needed here. Its LVOs, from the sfd:
-   AddIntServerEx -30, RemIntServerEx -36, GetIntStatus -42 */
+/* gic400.library. The three functions used here have the same numbers and registers since version 1.0 and return
+   0 when it went well. Version 1.3 is the first one which finds the GIC through the interrupt-parent of the device
+   tree and which has the error codes of today, the ROM of Emu68 has 1.4. Its LVOs, from the sfd:
+   AddIntServerEx -30, RemIntServerEx -36 */
+#define GIC400_MIN_VERSION  1
+#define GIC400_MIN_REVISION 3
+
 static LONG GIC_AddIntServerEx(struct Library *base, ULONG irq, UBYTE priority, BOOL edge, struct Interrupt *interrupt)
 {
     register LONG res asm("d0") = (LONG)irq;
@@ -58,15 +66,13 @@ static LONG GIC_AddIntServerEx(struct Library *base, ULONG irq, UBYTE priority, 
     return res;
 }
 
-static LONG GIC_GetIntStatus(struct Library *base, ULONG irq, BOOL *pending, BOOL *active, BOOL *enabled)
+static LONG GIC_RemIntServerEx(struct Library *base, ULONG irq, struct Interrupt *interrupt)
 {
     register LONG res asm("d0") = (LONG)irq;
     register struct Library *a6 asm("a6") = base;
-    register BOOL *a1 asm("a1") = pending;
-    register BOOL *a2 asm("a2") = active;
-    register BOOL *a3 asm("a3") = enabled;
+    register struct Interrupt *a1 asm("a1") = interrupt;
 
-    asm volatile("jsr -42(%%a6)" : "+r"(res) : "r"(a6), "r"(a1), "r"(a2), "r"(a3) : "d1", "a0", "cc", "memory");
+    asm volatile("jsr -36(%%a6)" : "+r"(res) : "r"(a6), "r"(a1) : "d1", "a0", "cc", "memory");
 
     return res;
 }
@@ -110,9 +116,10 @@ static ULONG VBlank_Interrupt(REGARG(struct BoardInfo *bi, "a1"))
         return 0;
 
     PV_Write(PV_INTSTAT, PV_INT_VFP_START);     /* write 1 to clear */
+    VideoCoreBase->vc_VBlankCount++;
 
     /* Nobody waits and nothing is double buffered: switch the interrupt off until SetInterrupt() is called */
-    if (bi->WaitQ.mlh_Head->mln_Succ == NULL && bi->DoubleBufferList == NULL)
+    if ((bi->WaitQ.mlh_Head == NULL || bi->WaitQ.mlh_Head->mln_Succ == NULL) && bi->DoubleBufferList == NULL)
         PV_Write(PV_INTEN, 0);
     else
         Cause(&bi->SoftInterrupt);
@@ -142,7 +149,6 @@ BOOL VBlank_Init(struct BoardInfo *bi)
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)bi->CardBase;
     struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
     struct Library *gic;
-    BOOL pending = FALSE, active = FALSE, enabled = FALSE;
     ULONG irq;
 
     /* The GIC-400 is the one of the Pi 4 */
@@ -163,14 +169,19 @@ BOOL VBlank_Init(struct BoardInfo *bi)
         return FALSE;
     }
 
-    /* Nobody else may use this interrupt */
-    GIC_GetIntStatus(gic, irq, &pending, &active, &enabled);
-    if (enabled || PV_Read(PV_INTEN) != 0)
+    if (gic->lib_Version < GIC400_MIN_VERSION ||
+        (gic->lib_Version == GIC400_MIN_VERSION && gic->lib_Revision < GIC400_MIN_REVISION))
     {
-        bug("[VC] VBlank: interrupt %ld is in use\n", irq);
+        bug("[VC] VBlank: %s %ld.%ld is too old\n", (ULONG)GIC400_NAME, (ULONG)gic->lib_Version, (ULONG)gic->lib_Revision);
         CloseLibrary(gic);
         return FALSE;
     }
+
+    /* Whoever else uses this interrupt has registered a handler and AddIntServerEx() below then refuses. What is
+       left in the hardware by the previous session (Emu68 restarts without resetting the GIC and the pixelvalve)
+       is not a user: the id may still be enabled in the GIC and PV_INTEN may still be armed. Start from scratch. */
+    PV_Write(PV_INTEN, 0);
+    PV_Write(PV_INTSTAT, PV_INT_VFP_START);
 
     bi->HardInterrupt.is_Data = bi;
     bi->HardInterrupt.is_Code = (void (*)())VBlank_Interrupt;
@@ -183,6 +194,28 @@ BOOL VBlank_Init(struct BoardInfo *bi)
         return FALSE;
     }
 
+    /* Being registered does not mean that the interrupt arrives: let the pixelvalve raise one and see it come,
+       the handler switches the source off by itself afterwards. A frame is 17 ms, the register reads are the clock
+       of this wait and the limit is a few frames long. If nothing comes, undo everything and stay on the polling
+       of WaitVerticalSync(). */
+    VideoCoreBase->vc_VBlankCount = 0;
+    PV_Write(PV_INTSTAT, PV_INT_VFP_START);
+    PV_Write(PV_INTEN, PV_INT_VFP_START);
+
+    for (ULONG n = 0; n < VBLANK_TEST_READS && VideoCoreBase->vc_VBlankCount == 0; n++)
+        (void)PV_Read(PV_INTSTAT);
+
+    PV_Write(PV_INTEN, 0);
+
+    if (VideoCoreBase->vc_VBlankCount == 0)
+    {
+        bug("[VC] VBlank: no interrupt %ld, staying on polling\n", irq);
+        GIC_RemIntServerEx(gic, irq, &bi->HardInterrupt);
+        CloseLibrary(gic);
+        return FALSE;
+    }
+
+    /* The last step: tell rtg.library */
     bi->SetInterrupt = (void *)VBlank_SetInterrupt;
     bi->Flags |= BIF_VBLANKINTERRUPT;
 
