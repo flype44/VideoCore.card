@@ -17,10 +17,13 @@
 #include "emu68-vc4.h"
 #include "vc4.h"
 #include "boardinfo.h"
+
+static void VC4_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0"),
+                                  REGARG(WORD y, "d1"), REGARG(RGBFTYPE format, "d7"));
 #include "mbox.h"
 #include "buddyalloc.h"
 
-int mitchell_netravali(ULONG x, ULONG b, ULONG c, struct Library *MathIeeeSingBasBase)
+static int mitchell_netravali(ULONG x, ULONG b, ULONG c, struct Library *MathIeeeSingBasBase)
 {
     const ULONG float_6 = 0x40c00000;
     const ULONG float_0p5 = 0x3f000000;
@@ -217,7 +220,7 @@ int compute_nearest_neighbour_kernel(volatile uint32_t *dlist_memory, ULONG offs
     return offset;
 }
 
-UWORD CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD width, "d0"), REGARG(RGBFTYPE format, "d7"))
+static UWORD VC4_CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD width, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -253,7 +256,7 @@ UWORD CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD width
     }
 }
 
-void SetDAC(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
+static void VC4_SetDAC(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -265,7 +268,7 @@ void SetDAC(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
 }
 
 
-void SetGC(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo *mode_info, "a1"), REGARG(BOOL border, "d0"))
+static void VC4_SetGC(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo *mode_info, "a1"), REGARG(BOOL border, "d0"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -313,7 +316,7 @@ static const ULONG mode_table[] = {
     [RGBFB_CLUT] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_PALETTE) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR)
 };
 
-UWORD SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
+static UWORD VC4_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -389,7 +392,7 @@ UWORD SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
     return 1 - enabled;
 }
 
-void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"), 
+static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"), 
                 REGARG(UWORD width, "d0"), REGARG(WORD x_offset, "d1"), REGARG(WORD y_offset, "d2"), 
                 REGARG(RGBFTYPE format, "d7"))
 {
@@ -407,7 +410,7 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
     ULONG calc_height = 0;
     ULONG sprite_width = 0;
     ULONG sprite_height = 0;
-    ULONG bytes_per_row = CalculateBytesPerRow(b, width, format);
+    ULONG bytes_per_row = VC4_CalculateBytesPerRow(b, width, format);
     ULONG bytes_per_pix = bytes_per_row / width;
     UWORD pos = 0;
     ULONG plane = -1;
@@ -502,7 +505,7 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
             pos = BUDDY_OFFSET(plane);
             wr32le(&displist[pos + 4], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             if (VC4Base->vc4_SpriteVisible)
-                SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
+                VC4_SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
         }
         else {
             plane = BuddyAlloc(VC4Base, 8 + 18 + 4);
@@ -588,7 +591,7 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
             pos = BUDDY_OFFSET(plane);
             wr32le(&displist[pos + 5], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             if (VC4Base->vc4_SpriteVisible)
-                SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
+                VC4_SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
         }
         else 
         {
@@ -721,7 +724,7 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
 }
 
 
-void SetColorArray(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD start, "d0"), REGARG(UWORD num, "d1"))
+static void VC4_SetColorArray(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD start, "d0"), REGARG(UWORD num, "d1"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -745,7 +748,7 @@ void SetColorArray(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD start, "d0"),
 }
 
 
-APTR CalculateMemory(REGARG(struct BoardInfo *b, "a0"), REGARG(unsigned long addr, "a1"), REGARG(RGBFTYPE format, "d7"))
+static APTR VC4_CalculateMemory(REGARG(struct BoardInfo *b, "a0"), REGARG(unsigned long addr, "a1"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -782,7 +785,7 @@ enum fake_rgbftypes {
 };
 #define BIP(a) (1 << a)
 
-ULONG GetCompatibleFormats(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
+static ULONG VC4_GetCompatibleFormats(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -795,7 +798,7 @@ ULONG GetCompatibleFormats(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE fo
 }
 
 //static int display_enabled = 0;
-UWORD SetDisplay(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
+static UWORD VC4_SetDisplay(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -813,7 +816,7 @@ UWORD SetDisplay(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
     return 1;
 }
 
-LONG ResolvePixelClock(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo *mode_info, "a1"),
+static LONG VC4_ResolvePixelClock(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo *mode_info, "a1"),
                        REGARG(ULONG pixel_clock, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
@@ -836,7 +839,7 @@ LONG ResolvePixelClock(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo
     return 0;
 }
 
-ULONG GetPixelClock(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo *mode_info, "a1"),
+static ULONG VC4_GetPixelClock(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo *mode_info, "a1"),
                     REGARG(ULONG index, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
@@ -850,27 +853,27 @@ ULONG GetPixelClock(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo *m
 }
 
 // None of these five really have to do anything.
-void SetClock(REGARG(struct BoardInfo *b, "a0"))
+static void VC4_SetClock(REGARG(struct BoardInfo *b, "a0"))
 {
 }
 
-void SetMemoryMode(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
+static void VC4_SetMemoryMode(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
 {
 }
 
-void SetWriteMask(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE mask, "d0"))
+static void VC4_SetWriteMask(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE mask, "d0"))
 {
 }
 
-void SetClearMask(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE mask, "d0"))
+static void VC4_SetClearMask(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE mask, "d0"))
 {
 }
 
-void SetReadPlane(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE plane, "d0"))
+static void VC4_SetReadPlane(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE plane, "d0"))
 {
 }
 
-void SetSprite(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable, "d0"), REGARG(RGBFTYPE format, "d7"))
+static void VC4_SetSprite(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
 
@@ -902,7 +905,7 @@ void SetSprite(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable, "d0"), REG
     }
 }
 
-void SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0"),
+static void VC4_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0"),
                        REGARG(WORD y, "d1"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
@@ -940,7 +943,7 @@ void SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0"),
 }
 
 
-void SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
+static void VC4_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = *(struct ExecBase **)4;
@@ -1007,7 +1010,7 @@ void SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "
     CacheClearE(VC4Base->vc4_SpriteShape, MAXSPRITEHEIGHT * MAXSPRITEWIDTH, CACRF_ClearD);
 }
 
-void SetSpriteColor(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE idx, "d0"),
+static void VC4_SetSpriteColor(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE idx, "d0"),
                     REGARG(UBYTE R, "d1"), REGARG(UBYTE G, "d2"), REGARG(UBYTE B, "d3"),
                     REGARG(RGBFTYPE format, "d7"))
 {
@@ -1020,7 +1023,7 @@ void SetSpriteColor(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE idx, "d0"),
     }
 }
 
-ULONG GetVBeamPos(REGARG(struct BoardInfo *b, "a0"))
+static ULONG VC4_GetVBeamPos(REGARG(struct BoardInfo *b, "a0"))
 {
     volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
     ULONG vbeampos = LE32(*stat) & 0xfff;
@@ -1028,7 +1031,7 @@ ULONG GetVBeamPos(REGARG(struct BoardInfo *b, "a0"))
     return vbeampos;
 }
 
-void WaitVerticalSync(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL toggle, "d0"))
+static void VC4_WaitVerticalSync(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL toggle, "d0"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
@@ -1251,26 +1254,26 @@ void VC4_InitChip(struct BoardInfo *bi)
     VC4Base->vc4_ConstructUnicamDL = VC4_ConstructUnicamDL;
 
     // Basic P96 functions needed for "dumb frame buffer" operation
-    bi->SetSwitch = (void *)SetSwitch;
-    bi->SetColorArray = (void *)SetColorArray;
-    bi->SetDAC = (void *)SetDAC;
-    bi->SetGC = (void *)SetGC;
-    bi->SetPanning = (void *)SetPanning;
-    bi->CalculateBytesPerRow = (void *)CalculateBytesPerRow;
-    bi->CalculateMemory = (void *)CalculateMemory;
-    bi->GetCompatibleFormats = (void *)GetCompatibleFormats;
-    bi->SetDisplay = (void *)SetDisplay;
+    bi->SetSwitch = (void *)VC4_SetSwitch;
+    bi->SetColorArray = (void *)VC4_SetColorArray;
+    bi->SetDAC = (void *)VC4_SetDAC;
+    bi->SetGC = (void *)VC4_SetGC;
+    bi->SetPanning = (void *)VC4_SetPanning;
+    bi->CalculateBytesPerRow = (void *)VC4_CalculateBytesPerRow;
+    bi->CalculateMemory = (void *)VC4_CalculateMemory;
+    bi->GetCompatibleFormats = (void *)VC4_GetCompatibleFormats;
+    bi->SetDisplay = (void *)VC4_SetDisplay;
 
-    bi->ResolvePixelClock = (void *)ResolvePixelClock;
-    bi->GetPixelClock = (void *)GetPixelClock;
-    bi->SetClock = (void *)SetClock;
+    bi->ResolvePixelClock = (void *)VC4_ResolvePixelClock;
+    bi->GetPixelClock = (void *)VC4_GetPixelClock;
+    bi->SetClock = (void *)VC4_SetClock;
 
-    bi->SetMemoryMode = (void *)SetMemoryMode;
-    bi->SetWriteMask = (void *)SetWriteMask;
-    bi->SetClearMask = (void *)SetClearMask;
-    bi->SetReadPlane = (void *)SetReadPlane;
+    bi->SetMemoryMode = (void *)VC4_SetMemoryMode;
+    bi->SetWriteMask = (void *)VC4_SetWriteMask;
+    bi->SetClearMask = (void *)VC4_SetClearMask;
+    bi->SetReadPlane = (void *)VC4_SetReadPlane;
 
-    bi->WaitVerticalSync = (void *)WaitVerticalSync;
+    bi->WaitVerticalSync = (void *)VC4_WaitVerticalSync;
 
     // Additional functions for "blitter" acceleration and vblank handling
     //bi->SetInterrupt = (void *)NULL;
@@ -1297,7 +1300,7 @@ void VC4_InitChip(struct BoardInfo *bi)
     //bi->ReInitMemory = (void *)NULL;
     //bi->WriteYUVRect = (void *)NULL;
     //bi->GetVSyncState = (void *)GetVSyncState;
-    bi->GetVBeamPos = (void *)GetVBeamPos;
+    bi->GetVBeamPos = (void *)VC4_GetVBeamPos;
     //bi->SetDPMSLevel = (void *)NULL;
     //bi->ResetChip = (void *)NULL;
     //bi->GetFeatureAttrs = (void *)NULL;
@@ -1305,10 +1308,10 @@ void VC4_InitChip(struct BoardInfo *bi)
     //bi->FreeBitMap = (void *)NULL;
     //bi->GetBitMapAttr = (void *)NULL;
 
-    bi->SetSprite = (void *)SetSprite;
-    bi->SetSpritePosition = (void *)SetSpritePosition;
-    bi->SetSpriteImage = (void *)SetSpriteImage;
-    bi->SetSpriteColor = (void *)SetSpriteColor;
+    bi->SetSprite = (void *)VC4_SetSprite;
+    bi->SetSpritePosition = (void *)VC4_SetSpritePosition;
+    bi->SetSpriteImage = (void *)VC4_SetSpriteImage;
+    bi->SetSpriteColor = (void *)VC4_SetSpriteColor;
 
     //bi->CreateFeature = (void *)NULL;
     //bi->SetFeatureAttrs = (void *)NULL;
