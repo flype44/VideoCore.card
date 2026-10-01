@@ -417,6 +417,182 @@ void Chip_SetDPMSLevel(REGARG(struct BoardInfo *b, "a0"), REGARG(ULONG level, "d
     }
 }
 
+/* Chooses the plane of the display list for a panning, the family writes its words */
+static void Chip_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
+                REGARG(UWORD width, "d0"), REGARG(WORD x_offset, "d1"), REGARG(WORD y_offset, "d2"),
+                REGARG(RGBFTYPE format, "d7"))
+{
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
+    const struct ChipFamily *family = VideoCoreBase->vc_Family;
+    int unity = 0;
+    ULONG scale_x = 0;
+    ULONG scale_y = 0;
+    ULONG scale = 0;
+    ULONG recip_x = 0;
+    ULONG recip_y = 0;
+    UWORD offset_x = 0;
+    UWORD offset_y = 0;
+    ULONG calc_width = 0;
+    ULONG calc_height = 0;
+    ULONG sprite_width = 0;
+    ULONG sprite_height = 0;
+    ULONG bytes_per_row = Chip_CalculateBytesPerRow(b, width, format);
+    ULONG bytes_per_pix = bytes_per_row / width;
+    UWORD pos = 0;
+    ULONG plane = -1;
+
+    int offset_only = 0;
+
+    if (0) {
+        bug("[VC] SetPanning %lx %ld %ld %ld %lx\n", addr, width, x_offset, y_offset, format);
+    }
+
+    if (VideoCoreBase->vc_LastPanning.lp_Addr != NULL &&
+        width == VideoCoreBase->vc_LastPanning.lp_Width &&
+        format == VideoCoreBase->vc_LastPanning.lp_Format)
+    {
+        if (addr == VideoCoreBase->vc_LastPanning.lp_Addr && x_offset == VideoCoreBase->vc_LastPanning.lp_X && y_offset == VideoCoreBase->vc_LastPanning.lp_Y) {
+            if (0) {
+                bug("[VC] same panning as before. Skipping now\n");
+            }
+            return;
+        }
+
+        offset_only = 1;
+    }
+
+    VideoCoreBase->vc_LastPanning.lp_Addr = addr;
+    VideoCoreBase->vc_LastPanning.lp_Width = width;
+    VideoCoreBase->vc_LastPanning.lp_X = x_offset;
+    VideoCoreBase->vc_LastPanning.lp_Y = y_offset;
+    VideoCoreBase->vc_LastPanning.lp_Format = format;
+
+    if (format != RGBFB_CLUT &&
+        b->ModeInfo->Width == VideoCoreBase->vc_DispSize.width &&
+        b->ModeInfo->Height == VideoCoreBase->vc_DispSize.height)
+    {
+        unity = 1;
+        sprite_width = MAXSPRITEWIDTH;
+        sprite_height = MAXSPRITEHEIGHT;
+        scale = family->UnityScale;
+
+        VideoCoreBase->vc_ScaleX = 0x10000;
+        VideoCoreBase->vc_ScaleY = 0x10000;
+        VideoCoreBase->vc_OffsetX = 0;
+        VideoCoreBase->vc_OffsetY = 0;
+    }
+    else
+    {
+        ULONG factor_y = (b->ModeInfo->Flags & GMF_DOUBLESCAN) ? 0x20000 : 0x10000;
+        scale_x = 0x10000 * b->ModeInfo->Width / VideoCoreBase->vc_DispSize.width;
+        scale_y = factor_y * b->ModeInfo->Height / VideoCoreBase->vc_DispSize.height;
+
+        recip_x = 0xffffffff / scale_x;
+        recip_y = 0xffffffff / scale_y;
+
+        // Select larger scaling factor from X and Y, but it need to fit
+        if (((factor_y * b->ModeInfo->Height) / scale_x) > VideoCoreBase->vc_DispSize.height) {
+            scale = scale_y;
+        }
+        else {
+            scale = scale_x;
+        }
+
+        if (VideoCoreBase->vc_IntegerScaler)
+        {
+            scale = 0x10000 / (ULONG)(0x10000 / scale);
+        }
+
+        VideoCoreBase->vc_ScaleX = scale;
+        VideoCoreBase->vc_ScaleY = (b->ModeInfo->Flags & GMF_DOUBLESCAN) ? scale >> 1 : scale;
+
+        calc_width = (0x10000 * b->ModeInfo->Width) / scale;
+        calc_height = (factor_y * b->ModeInfo->Height) / scale;
+
+        sprite_width = (0x10000 * MAXSPRITEWIDTH) / scale;
+        sprite_height = (factor_y * MAXSPRITEHEIGHT) / scale;
+
+        offset_x = (VideoCoreBase->vc_DispSize.width - calc_width) >> 1;
+        offset_y = (VideoCoreBase->vc_DispSize.height - calc_height) >> 1;
+
+        VideoCoreBase->vc_OffsetX = offset_x;
+        VideoCoreBase->vc_OffsetY = offset_y;
+
+        if (0)
+            bug("[VC] Selected scale: %08lx (X: %08lx, Y: %08lx, 1/X: %08lx, 1/Y: %08lx)\n"
+                "[VC] Scaled size: %ld x %ld, offset X %ld, offset Y %ld\n", scale, scale_x, scale_y, recip_x, recip_y,
+                calc_width, calc_height, offset_x, offset_y);
+    }
+
+    struct Panning pan;
+    volatile uint32_t *displist = (uint32_t *)family->DisplayList;
+
+    pan.Unity = unity;
+    pan.Format = format;
+    pan.Address = (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix;
+    pan.BytesPerRow = bytes_per_row;
+    pan.Scale = scale;
+    pan.OffsetX = offset_x;
+    pan.OffsetY = offset_y;
+    pan.Width = calc_width;
+    pan.Height = calc_height;
+    pan.Kernel = BUDDY_OFFSET(VideoCoreBase->vc_ScalingKernel);
+    pan.SpriteWidth = sprite_width;
+    pan.SpriteHeight = sprite_height;
+  
+    if (unity) {
+        if (offset_only) {
+            plane = VideoCoreBase->vc_ActivePlane;
+            pos = BUDDY_OFFSET(plane);
+            wr32le(&displist[pos + family->UnityAddressWord], 0xc0000000 | pan.Address);
+            if (VideoCoreBase->vc_SpriteVisible)
+                b->SetSpritePosition(b, VideoCoreBase->vc_MouseX, VideoCoreBase->vc_MouseY, format);
+        }
+        else {
+            plane = BuddyAlloc(VideoCoreBase, family->UnityPlaneWords);
+            pos = BUDDY_OFFSET(plane);
+            int cnt = family->WritePlane(b, &pan, pos);
+
+            pan.SpriteX = offset_x + VideoCoreBase->vc_MouseX - x_offset;
+            pan.SpriteY = offset_y + VideoCoreBase->vc_MouseY - y_offset;
+            pan.SpriteKernel = BUDDY_OFFSET(VideoCoreBase->vc_UnityKernel);
+            cnt = family->WriteSprite(b, &pan, cnt);
+        }
+    } else {
+        if (offset_only) {
+            plane = VideoCoreBase->vc_ActivePlane;
+            pos = BUDDY_OFFSET(plane);
+            wr32le(&displist[pos + family->ScaledAddressWord], 0xc0000000 | pan.Address);
+            if (VideoCoreBase->vc_SpriteVisible)
+                b->SetSpritePosition(b, VideoCoreBase->vc_MouseX, VideoCoreBase->vc_MouseY, format);
+        }
+        else
+        {
+            plane = BuddyAlloc(VideoCoreBase, family->ScaledPlaneWords);
+            pos = BUDDY_OFFSET(plane);
+            int cnt = family->WritePlane(b, &pan, pos);
+
+            pan.SpriteX = offset_x + 0x10000 * (VideoCoreBase->vc_MouseX - x_offset) / VideoCoreBase->vc_ScaleX;
+            pan.SpriteY = offset_y + 0x10000 * (VideoCoreBase->vc_MouseY - y_offset) / VideoCoreBase->vc_ScaleY;
+            pan.SpriteKernel = pan.Kernel;
+            cnt = family->WriteSprite(b, &pan, cnt);
+        }
+    }
+
+    if (plane != VideoCoreBase->vc_ActivePlane)
+    {
+        volatile ULONG *stat = (ULONG*)(HVS_BASE + SCALER_DISPSTAT1);
+
+        // Wait for vertical blank before updating the display list
+        do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VideoCoreBase->vc_DispSize.height);
+
+        wr32le((volatile uint32_t *)(HVS_BASE + SCALER_DISPLIST1), pos);
+        BuddyFree(VideoCoreBase, VideoCoreBase->vc_ActivePlane);
+        VideoCoreBase->vc_ActivePlane = plane;
+    }
+}
+
 /* Gives the BoardInfo the functions both families share and then those of the family */
 void Chip_Init(struct BoardInfo *bi, const struct ChipFamily *family)
 {
@@ -480,13 +656,13 @@ void Chip_Init(struct BoardInfo *bi, const struct ChipFamily *family)
 
     bi->SetSpriteImage = (void *)Chip_SetSpriteImage;
     bi->SetSpriteColor = (void *)Chip_SetSpriteColor;
+    bi->SetPanning = (void *)Chip_SetPanning;
 
     //bi->CreateFeature = (void *)NULL;
     //bi->SetFeatureAttrs = (void *)NULL;
     //bi->DeleteFeature = (void *)NULL;
 
     // The functions which write the display lists of the family
-    bi->SetPanning = family->SetPanning;
     bi->SetSprite = family->SetSprite;
     bi->SetSpritePosition = family->SetSpritePosition;
 }

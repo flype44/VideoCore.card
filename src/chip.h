@@ -25,8 +25,8 @@ struct Panning {
     ULONG SpriteKernel;                 /* offset of the scaling kernel of the sprite in the display list memory */
 };
 
-/* What tells a family of the VideoCore from the other one. The functions are the ones of the BoardInfo which write
-   the words of the display lists of the family. */
+/* What tells a family of the VideoCore from the other one: the numbers of its display lists and the functions which
+   write their words. WritePlane and WriteSprite return the index of the word after what they wrote. */
 struct ChipFamily {
     const char *Name;                   /* VC4 or VC6 */
     APTR        DisplayList;            /* the display list memory of the HVS */
@@ -34,8 +34,10 @@ struct ChipFamily {
     ULONG       ScaledPlaneWords;       /* words of a scaled screen: scaler and kernel words in both planes */
     UWORD       UnityAddressWord;       /* index of the pixel address in the main plane of a native screen */
     UWORD       ScaledAddressWord;      /* the same in the main plane of a scaled screen */
+    ULONG       UnityScale;             /* the scale left in the planes of a native screen */
     void      (*ConstructUnicamDL)(struct VideoCoreBase *VideoCoreBase);
-    APTR        SetPanning;
+    int       (*WritePlane)(struct BoardInfo *b, const struct Panning *pan, int pos);
+    int       (*WriteSprite)(struct BoardInfo *b, const struct Panning *pan, int cnt);
     APTR        SetSprite;
     APTR        SetSpritePosition;
 };
