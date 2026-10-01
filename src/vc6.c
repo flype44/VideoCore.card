@@ -912,8 +912,10 @@ void VC6_BlitRect(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *r
     ULONG height = h;
     ULONG width = w * bpp;
 
-    /* Only bitmaps located in the memory visible to the VPU can be handled */
-    if ((ULONG)r->Memory < 0x01000000 || (ULONG)r->Memory >= 0x40000000)
+    /* Only bitmaps located in the memory visible to the VPU can be handled, and
+       small rectangles are cheaper to copy by the CPU than a mailbox round trip */
+    if (width * height < VC4Base->vc4_VPUMinSize ||
+        (ULONG)r->Memory < 0x01000000 || (ULONG)r->Memory >= 0x40000000)
     {
         b->BlitRectDefault(b, r, x, y, dx, dy, w, h, mask, format);
         return;
