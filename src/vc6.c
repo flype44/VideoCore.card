@@ -991,6 +991,11 @@ void VC6_InvertRect(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo 
 #define BFEXTU8(v, ptr, off) \
     asm("bfextu (%1){%2:8},%0" : "=d"(v) : "a"(ptr), "d"(off), "m"(*(const UBYTE (*)[2])(ptr)) : "cc")
 
+/* The pixels of the 16 nibbles. Not on the stack: a program may have a small one (P96Speed has 4096 bytes), and
+   the stack is aligned on 2 bytes only, which makes the movem.l reads slow. Hooks run under the BoardLock, so
+   one table is enough. */
+static ULONG template_tab[16][4] __attribute__((aligned(16)));
+
 /* BlitTemplate for 32 bit pixels in the draw modes which write every pixel, JAM2 (FgPen for the bits
    which are set, BgPen for the others) and JAM2 | INVERSVID (the other way round). The template has
    one bit per pixel, the most significant bit first, and the first XOffset bits of every row are
@@ -1001,9 +1006,7 @@ static int blit_template_32(struct RenderInfo *r, struct Template *t, WORD x, WO
 {
     ULONG stride = r->BytesPerRow;
     ULONG c1, c0;
-    /* The stack is aligned on 2 bytes only, movem.l reads of a table which is not aligned are slow */
-    ULONG tabmem[16 * 4 + 3];
-    ULONG (*tab)[4] = (ULONG (*)[4])(((ULONG)tabmem + 15) & ~15UL);
+    ULONG (*tab)[4] = template_tab;
     WORD row;
 
     switch (t->DrawMode)
