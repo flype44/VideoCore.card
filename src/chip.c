@@ -102,7 +102,7 @@ static ULONG Chip_GetPixelClock(REGARG(struct BoardInfo *b, "a0"), REGARG(struct
 
 static ULONG Chip_GetVBeamPos(REGARG(struct BoardInfo *b, "a0"))
 {
-    volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
+    volatile ULONG *stat = (ULONG*)(HVS_BASE + SCALER_DISPSTAT1);
     ULONG vbeampos = LE32(*stat) & 0xfff;
 
     return vbeampos;
@@ -192,7 +192,7 @@ static void Chip_SetGC(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo
 static void Chip_WaitVerticalSync(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL toggle, "d0"))
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
-    volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
+    volatile ULONG *stat = (ULONG*)(HVS_BASE + SCALER_DISPSTAT1);
 
     // Wait until current vbeampos is lower than the one obtained above
     do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VideoCoreBase->vc_DispSize.height);
@@ -341,11 +341,11 @@ static UWORD Chip_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enab
            case CSI:
                 if (!en) {
                     VideoCoreBase->vc_UnicamVisible = TRUE;
-                    wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(VideoCoreBase->vc_UnicamDL));
+                    wr32le((volatile uint32_t *)(HVS_BASE + SCALER_DISPLIST1), BUDDY_OFFSET(VideoCoreBase->vc_UnicamDL));
                 }
                 else {
                     VideoCoreBase->vc_UnicamVisible = FALSE;
-                    wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(VideoCoreBase->vc_ActivePlane));
+                    wr32le((volatile uint32_t *)(HVS_BASE + SCALER_DISPLIST1), BUDDY_OFFSET(VideoCoreBase->vc_ActivePlane));
                 }
                 break;
         }

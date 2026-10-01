@@ -221,7 +221,7 @@ int compute_nearest_neighbour_kernel(volatile uint32_t *dlist_memory, ULONG offs
 /* Wait for the vertical blank before the display list is updated */
 static void HVS_WaitVBlank(struct VideoCoreBase *VideoCoreBase)
 {
-    volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
+    volatile ULONG *stat = (ULONG*)(HVS_BASE + SCALER_DISPSTAT1);
 
     do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VideoCoreBase->vc_DispSize.height);
 }
@@ -337,7 +337,7 @@ void HVS_UpdateUnicamDL(struct VideoCoreBase *VideoCoreBase)
         UnicamConstructDL(VideoCoreBase->vc_DisplayList, BUDDY_OFFSET(idx));
 
         if (VideoCoreBase->vc_UnicamVisible) {
-            wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(idx));
+            wr32le((volatile uint32_t *)(HVS_BASE + SCALER_DISPLIST1), BUDDY_OFFSET(idx));
         }
 
         /* Set the new pointer to unicam display list */
@@ -397,7 +397,7 @@ void HVS_ShowUnicam(struct VideoCoreBase *VideoCoreBase)
         {
             VideoCoreBase->vc_UnicamVisible = TRUE;
             /* Both vc4 and vc6 switch the same way */
-            wr32le((volatile uint32_t *)0xf2400024, VideoCoreBase->vc_UnicamDL);
+            wr32le((volatile uint32_t *)(HVS_BASE + SCALER_DISPLIST1), VideoCoreBase->vc_UnicamDL);
         }
     }
 }

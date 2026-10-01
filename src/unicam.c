@@ -11,7 +11,6 @@
 #define AARCH 32
 #define GENMASK(h, l) ((~0UL - (1UL << (l)) + 1) & (~0UL >> (AARCH - 1 - (h))))
 
-#define ARM_IO_BASE 0xf2000000
 #define ARM_CSI0_BASE (ARM_IO_BASE + 0x800000)
 #define ARM_CSI0_END (ARM_CSI0_BASE + 0x7FF)
 #define ARM_CSI0_CLKGATE (ARM_IO_BASE + 0x802000) // 4 bytes

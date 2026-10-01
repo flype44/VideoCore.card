@@ -247,7 +247,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
     Disable();
 
-    volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
+    volatile ULONG *stat = (ULONG*)(HVS_BASE + SCALER_DISPSTAT1);
 
     ULONG cnt1 = *stat & LE32(0x3f << 12);
     ULONG cnt2;
@@ -256,13 +256,13 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     do { cnt2 = *stat & LE32(0x3f << 12); } while(cnt2 == cnt1);
     
     /* Get current tick number */
-    ULONG tick1 = LE32(*(volatile uint32_t*)0xf2003004);
+    ULONG tick1 = LE32(*(volatile uint32_t*)SYSTEM_TIMER_CLO);
 
     /* Wait for the very next frame */
     do { cnt1 = *stat & LE32(0x3f << 12); } while(cnt2 == cnt1);
 
     /* Get current tick number */
-    ULONG tick2 = LE32(*(volatile uint32_t*)0xf2003004);
+    ULONG tick2 = LE32(*(volatile uint32_t*)SYSTEM_TIMER_CLO);
 
     Enable();
 

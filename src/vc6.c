@@ -384,12 +384,12 @@ static void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
 
     if (plane != VideoCoreBase->vc_ActivePlane)
     {
-        volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
+        volatile ULONG *stat = (ULONG*)(HVS_BASE + SCALER_DISPSTAT1);
 
         // Wait for vertical blank before updating the display list
         do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VideoCoreBase->vc_DispSize.height);
 
-        wr32le((volatile uint32_t *)0xf2400024, pos);
+        wr32le((volatile uint32_t *)(HVS_BASE + SCALER_DISPLIST1), pos);
         BuddyFree(VideoCoreBase, VideoCoreBase->vc_ActivePlane);
         VideoCoreBase->vc_ActivePlane = plane;
     }
@@ -679,7 +679,7 @@ void VC6_InitChip(struct BoardInfo *bi)
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)bi->CardBase;
 
-    VideoCoreBase->vc_DisplayList = (APTR)0xf2404000;
+    VideoCoreBase->vc_DisplayList = (APTR)VC6_DISPLAY_LIST;
     VideoCoreBase->vc_ConstructUnicamDL = VC6_ConstructUnicamDL;
 
     /* What both families do the same way, then what writes the display lists of this one */

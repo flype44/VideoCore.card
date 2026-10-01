@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include "boardinfo.h"
 
+/* The display list memory of the HVS */
+#define VC6_DISPLAY_LIST            (HVS_BASE + 0x4000)
+
 #define VC6_CONTROL_FORMAT(n)       (n & 0x1f)
 #define VC6_CONTROL_END             (1<<31)
 #define VC6_CONTROL_VALID           (1<<30)

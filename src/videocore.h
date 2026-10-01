@@ -18,6 +18,11 @@
 #define VC4CARD_REVISION 0
 #define VC4CARD_PRIORITY 0
 
+/* The peripherals, at the addresses Emu68 maps them */
+#define ARM_IO_BASE         0xf2000000
+#define SYSTEM_TIMER_CLO    (ARM_IO_BASE + 0x3004)      /* 1 MHz counter */
+#define HVS_BASE            (ARM_IO_BASE + 0x400000)
+
 #define CLOCK_HZ        25000000
 
 struct Size {

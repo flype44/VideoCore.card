@@ -66,6 +66,10 @@ enum palette_type {
 #define SCALER_CTL0_SCL_H_NONE_V_TPZ            6
 #define SCALER_CTL0_SCL_H_TPZ_V_NONE            7
 
+#define SCALER_DISPLIST0                        0x00000020
+#define SCALER_DISPLIST1                        0x00000024
+#define SCALER_DISPLIST2                        0x00000028
+
 #define SCALER_DISPSTAT0                        0x00000048
 #define SCALER_DISPSTAT1                        0x00000058
 #define SCALER_DISPSTAT2                        0x00000068
