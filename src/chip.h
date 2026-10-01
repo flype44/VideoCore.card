@@ -8,7 +8,16 @@
 
 /* The numbers of a panning which the words of the planes are made of */
 struct Panning {
+    int   Unity;                        /* the screen has the size of the display: no scaling */
+    RGBFTYPE Format;
+    ULONG Address;                      /* address of the first pixel to show */
+    ULONG BytesPerRow;
     ULONG Scale;                        /* scale of the screen on the display, 16.16 */
+    ULONG OffsetX;                      /* position of the screen on the display */
+    ULONG OffsetY;
+    ULONG Width;                        /* size of the screen on the display */
+    ULONG Height;
+    ULONG Kernel;                       /* offset of the scaling kernel in the display list memory */
     ULONG SpriteWidth;                  /* size of the sprite plane on the display */
     ULONG SpriteHeight;
     ULONG SpriteX;                      /* position of the sprite plane on the display */

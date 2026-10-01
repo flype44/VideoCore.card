@@ -108,6 +108,82 @@ static int VC4_WriteSprite(struct BoardInfo *b, const struct Panning *pan, int c
     return cnt;
 }
 
+/* The main plane: the screen, scaled to the display unless it has the size of the display. Returns the
+   index of the word after the plane. */
+static int VC4_WritePlane(struct BoardInfo *b, const struct Panning *pan, int pos)
+{
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_Family->DisplayList;
+    int cnt = pos + 1;
+
+    if (pan->Unity) {
+        VideoCoreBase->vc_PlaneCoord = &displist[cnt];
+        wr32le(&displist[cnt++], VC4_POS0_X(pan->OffsetX) | VC4_POS0_Y(pan->OffsetY) | VC4_POS0_ALPHA(0xff));
+        
+        wr32le(&displist[cnt++], VC4_POS2_H(b->ModeInfo->Height) | VC4_POS2_W(b->ModeInfo->Width) | (1 << 30));
+        wr32le(&displist[cnt++], 0xdeadbeef);
+        wr32le(&displist[cnt++], 0xc0000000 | pan->Address);
+        wr32le(&displist[cnt++], 0xdeadbeef);
+        wr32le(&displist[cnt++], pan->BytesPerRow);
+
+        wr32le(&displist[pos],
+            VC4_CONTROL_VALID
+            | VC4_CONTROL_WORDS(cnt - pos)
+            | VC4_CONTROL_UNITY
+            | mode_table[pan->Format]);
+
+        VideoCoreBase->vc_PlaneScalerX = NULL;
+        VideoCoreBase->vc_PlaneScalerY = NULL;
+    } else {
+        VideoCoreBase->vc_PlaneCoord = &displist[cnt];
+        wr32le(&displist[cnt++], VC4_POS0_X(pan->OffsetX) | VC4_POS0_Y(pan->OffsetY) | VC4_POS0_ALPHA(0xff));
+        wr32le(&displist[cnt++], VC4_POS1_H(pan->Height) | VC4_POS1_W(pan->Width));
+        wr32le(&displist[cnt++], VC4_POS2_H(b->ModeInfo->Height) | VC4_POS2_W(b->ModeInfo->Width) | (VC4_SCALER_POS2_ALPHA_MODE_FIXED << VC4_SCALER_POS2_ALPHA_MODE_SHIFT));
+        wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
+
+        wr32le(&displist[cnt++], 0xc0000000 | pan->Address);
+        wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
+
+        // Write pitch
+        wr32le(&displist[cnt++], pan->BytesPerRow);
+
+        // Palette mode - offset of palette placed in dlist
+        if (pan->Format == RGBFB_CLUT) {
+            wr32le(&displist[cnt++], 0xc0000000 | (0x300 << 2));
+        }
+
+        // LMB address
+        wr32le(&displist[cnt++], 0);
+
+        // Write PPF Scaling
+        VideoCoreBase->vc_PlaneScalerX = &displist[cnt];
+        VideoCoreBase->vc_PlaneScalerY = &displist[cnt+1];
+
+        wr32le(&displist[cnt++], (pan->Scale << 8) | VideoCoreBase->vc_Scaler | VideoCoreBase->vc_Phase);
+        if (b->ModeInfo->Flags & GMF_DOUBLESCAN)
+            wr32le(&displist[cnt++], ((pan->Scale << 7) & ~0xff) | VideoCoreBase->vc_Scaler | VideoCoreBase->vc_Phase);
+        else
+            wr32le(&displist[cnt++], (pan->Scale << 8) | VideoCoreBase->vc_Scaler | VideoCoreBase->vc_Phase);
+        wr32le(&displist[cnt++], 0); // Scratch written by HVS
+
+        // Write scaling kernel offset in dlist
+        VideoCoreBase->vc_Kernel = &displist[cnt];
+        wr32le(&displist[cnt++], pan->Kernel);
+        wr32le(&displist[cnt++], pan->Kernel);
+        wr32le(&displist[cnt++], pan->Kernel);
+        wr32le(&displist[cnt++], pan->Kernel);
+
+        wr32le(&displist[pos],
+            VC4_CONTROL_VALID           |
+            VC4_CONTROL_WORDS(cnt-pos)  |
+            0x01800                 |
+            mode_table[pan->Format]
+        );
+    }
+
+    return cnt;
+}
+
 static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"), 
                 REGARG(UWORD width, "d0"), REGARG(WORD x_offset, "d1"), REGARG(WORD y_offset, "d2"), 
                 REGARG(RGBFTYPE format, "d7"))
@@ -216,7 +292,16 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
     struct Panning pan;
     volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_Family->DisplayList;
 
+    pan.Unity = unity;
+    pan.Format = format;
+    pan.Address = (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix;
+    pan.BytesPerRow = bytes_per_row;
     pan.Scale = scale;
+    pan.OffsetX = offset_x;
+    pan.OffsetY = offset_y;
+    pan.Width = calc_width;
+    pan.Height = calc_height;
+    pan.Kernel = BUDDY_OFFSET(VideoCoreBase->vc_ScalingKernel);
     pan.SpriteWidth = sprite_width;
     pan.SpriteHeight = sprite_height;
    
@@ -224,32 +309,14 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
         if (offset_only) {
             plane = VideoCoreBase->vc_ActivePlane;
             pos = BUDDY_OFFSET(plane);
-            wr32le(&displist[pos + VideoCoreBase->vc_Family->UnityAddressWord], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
+            wr32le(&displist[pos + VideoCoreBase->vc_Family->UnityAddressWord], 0xc0000000 | pan.Address);
             if (VideoCoreBase->vc_SpriteVisible)
                 VC4_SetSpritePosition(b, VideoCoreBase->vc_MouseX, VideoCoreBase->vc_MouseY, format);
         }
         else {
             plane = BuddyAlloc(VideoCoreBase, VideoCoreBase->vc_Family->UnityPlaneWords);
             pos = BUDDY_OFFSET(plane);
-            int cnt = pos + 1;
-
-            VideoCoreBase->vc_PlaneCoord = &displist[cnt];
-            wr32le(&displist[cnt++], VC4_POS0_X(offset_x) | VC4_POS0_Y(offset_y) | VC4_POS0_ALPHA(0xff));
-            
-            wr32le(&displist[cnt++], VC4_POS2_H(b->ModeInfo->Height) | VC4_POS2_W(b->ModeInfo->Width) | (1 << 30));
-            wr32le(&displist[cnt++], 0xdeadbeef);
-            wr32le(&displist[cnt++], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
-            wr32le(&displist[cnt++], 0xdeadbeef);
-            wr32le(&displist[cnt++], bytes_per_row);
-
-            wr32le(&displist[pos],
-                VC4_CONTROL_VALID
-                | VC4_CONTROL_WORDS(cnt - pos)
-                | VC4_CONTROL_UNITY
-                | mode_table[format]);
-
-            VideoCoreBase->vc_PlaneScalerX = NULL;
-            VideoCoreBase->vc_PlaneScalerY = NULL;
+            int cnt = VC4_WritePlane(b, &pan, pos);
 
             pan.SpriteX = offset_x + VideoCoreBase->vc_MouseX - x_offset;
             pan.SpriteY = offset_y + VideoCoreBase->vc_MouseY - y_offset;
@@ -260,7 +327,7 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
         if (offset_only) {
             plane = VideoCoreBase->vc_ActivePlane;
             pos = BUDDY_OFFSET(plane);
-            wr32le(&displist[pos + VideoCoreBase->vc_Family->ScaledAddressWord], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
+            wr32le(&displist[pos + VideoCoreBase->vc_Family->ScaledAddressWord], 0xc0000000 | pan.Address);
             if (VideoCoreBase->vc_SpriteVisible)
                 VC4_SetSpritePosition(b, VideoCoreBase->vc_MouseX, VideoCoreBase->vc_MouseY, format);
         }
@@ -268,58 +335,11 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
         {
             plane = BuddyAlloc(VideoCoreBase, VideoCoreBase->vc_Family->ScaledPlaneWords);
             pos = BUDDY_OFFSET(plane);
-            int cnt = pos + 1;
-
-            VideoCoreBase->vc_PlaneCoord = &displist[cnt];
-            wr32le(&displist[cnt++], VC4_POS0_X(offset_x) | VC4_POS0_Y(offset_y) | VC4_POS0_ALPHA(0xff));
-            wr32le(&displist[cnt++], VC4_POS1_H(calc_height) | VC4_POS1_W(calc_width));
-            wr32le(&displist[cnt++], VC4_POS2_H(b->ModeInfo->Height) | VC4_POS2_W(b->ModeInfo->Width) | (VC4_SCALER_POS2_ALPHA_MODE_FIXED << VC4_SCALER_POS2_ALPHA_MODE_SHIFT));
-            wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
-
-            wr32le(&displist[cnt++], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
-            wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
-
-            // Write pitch
-            wr32le(&displist[cnt++], bytes_per_row);
-
-            // Palette mode - offset of palette placed in dlist
-            if (format == RGBFB_CLUT) {
-                wr32le(&displist[cnt++], 0xc0000000 | (0x300 << 2));
-            }
-
-            // LMB address
-            wr32le(&displist[cnt++], 0);
-
-            // Write PPF Scaling
-            VideoCoreBase->vc_PlaneScalerX = &displist[cnt];
-            VideoCoreBase->vc_PlaneScalerY = &displist[cnt+1];
-
-            wr32le(&displist[cnt++], (scale << 8) | VideoCoreBase->vc_Scaler | VideoCoreBase->vc_Phase);
-            if (b->ModeInfo->Flags & GMF_DOUBLESCAN)
-                wr32le(&displist[cnt++], ((scale << 7) & ~0xff) | VideoCoreBase->vc_Scaler | VideoCoreBase->vc_Phase);
-            else
-                wr32le(&displist[cnt++], (scale << 8) | VideoCoreBase->vc_Scaler | VideoCoreBase->vc_Phase);
-            wr32le(&displist[cnt++], 0); // Scratch written by HVS
-
-            ULONG kernel_start = BUDDY_OFFSET(VideoCoreBase->vc_ScalingKernel);
-
-            // Write scaling kernel offset in dlist
-            VideoCoreBase->vc_Kernel = &displist[cnt];
-            wr32le(&displist[cnt++], kernel_start);
-            wr32le(&displist[cnt++], kernel_start);
-            wr32le(&displist[cnt++], kernel_start);
-            wr32le(&displist[cnt++], kernel_start);
-
-            wr32le(&displist[pos],
-                VC4_CONTROL_VALID           |
-                VC4_CONTROL_WORDS(cnt-pos)  |
-                0x01800                 |
-                mode_table[format]
-            );
+            int cnt = VC4_WritePlane(b, &pan, pos);
 
             pan.SpriteX = offset_x + 0x10000 * (VideoCoreBase->vc_MouseX - x_offset) / VideoCoreBase->vc_ScaleX;
             pan.SpriteY = offset_y + 0x10000 * (VideoCoreBase->vc_MouseY - y_offset) / VideoCoreBase->vc_ScaleY;
-            pan.SpriteKernel = kernel_start;
+            pan.SpriteKernel = pan.Kernel;
             cnt = VC4_WriteSprite(b, &pan, cnt);
 #if 0
             for (int i=pos; i < cnt; i++) {
