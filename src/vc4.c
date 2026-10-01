@@ -27,7 +27,7 @@ static void VC4_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD
 static UWORD VC4_CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD width, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
-    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
 
     if (!b)
         return 0;
@@ -63,7 +63,7 @@ static UWORD VC4_CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(
 static void VC4_SetDAC(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
-    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
     
     if (0)
         bug("[VC4] SetDAC\n");
@@ -75,7 +75,7 @@ static void VC4_SetDAC(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format
 static void VC4_SetGC(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo *mode_info, "a1"), REGARG(BOOL border, "d0"))
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
-    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
     struct Size dim;
     int need_switch = 0;
 
@@ -123,7 +123,7 @@ static const ULONG mode_table[] = {
 static UWORD VC4_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
-    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
     volatile ULONG *displist = (ULONG *)0xf2402000;
 
     if (0)
@@ -201,7 +201,7 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
                 REGARG(RGBFTYPE format, "d7"))
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
-    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
     int unity = 0;
     ULONG scale_x = 0;
     ULONG scale_y = 0;
@@ -531,7 +531,7 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
 static void VC4_SetColorArray(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD start, "d0"), REGARG(UWORD num, "d1"))
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
-    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
     volatile uint32_t *displist = (uint32_t *)0xf2402000;
 
     // Sets the color components of X color components for 8-bit paletted display modes.
@@ -555,7 +555,7 @@ static void VC4_SetColorArray(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD st
 static APTR VC4_CalculateMemory(REGARG(struct BoardInfo *b, "a0"), REGARG(unsigned long addr, "a1"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
-    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
 
     if (0)
     {
@@ -592,7 +592,7 @@ enum fake_rgbftypes {
 static ULONG VC4_GetCompatibleFormats(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
-    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
     if (0)
     {
         bug("[VC4] GetCompatibleFormats %lx\n", format);
@@ -605,7 +605,7 @@ static ULONG VC4_GetCompatibleFormats(REGARG(struct BoardInfo *b, "a0"), REGARG(
 static UWORD VC4_SetDisplay(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
-    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
 #if 0
     if (0)
     {
@@ -624,7 +624,7 @@ static LONG VC4_ResolvePixelClock(REGARG(struct BoardInfo *b, "a0"), REGARG(stru
                        REGARG(ULONG pixel_clock, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
-    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
     
     if (0)
     {
@@ -1029,7 +1029,7 @@ static void VC4_ConstructUnicamDL(struct VideoCoreBase *VideoCoreBase)
         /* Put scaling kernel here... */
         if (config & UNICAMF_SMOOTHING)
         {
-            struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
+            struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
             struct Library *MathIeeeSingBasBase = OpenLibrary("mathieeesingbas.library", 0);
 
             ULONG float_kernel_b = IEEESPDiv(

@@ -338,7 +338,7 @@ void init_display(struct Size dimensions, uint8_t depth, void **framebuffer, uin
 
 uint32_t upload_code(const void *code, uint32_t code_size, struct VideoCoreBase *VideoCoreBase)
 {
-    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
     ULONG handle;
     ULONG phys_addr;
     UBYTE *ptr;

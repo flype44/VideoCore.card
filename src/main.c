@@ -62,7 +62,7 @@ const char deviceIdString[] = VERSION_STRING;
 
 static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreBase *VideoCoreBase, "a6"))
 {
-    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
     APTR DeviceTreeBase = NULL;
     APTR key;
 
@@ -197,7 +197,7 @@ static const struct {
 
 static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **ToolTypes, "a1"), REGARG(struct VideoCoreBase *VideoCoreBase, "a6"))
 {
-    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
     struct Library *MathIeeeSingBasBase = OpenLibrary("mathieeesingbas.library", 0);
 
     BuddyInit(VideoCoreBase);
@@ -454,7 +454,7 @@ static struct VideoCoreBase * OpenLib(REGARG(ULONG version, "d0"), REGARG(struct
 
 static ULONG ExpungeLib(REGARG(struct VideoCoreBase *VideoCoreBase, "a6"))
 {
-    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
     BPTR segList = 0;
 
     if (VideoCoreBase->vc_LibNode.LibBase.lib_OpenCnt == 0)
@@ -463,7 +463,7 @@ static ULONG ExpungeLib(REGARG(struct VideoCoreBase *VideoCoreBase, "a6"))
         Remove(&VideoCoreBase->vc_LibNode.LibBase.lib_Node);
 
         /* Save seglist */
-        segList = VideoCoreBase->vc_SegList;
+        segList = (BPTR)VideoCoreBase->vc_LibNode.SegList;
 
         /* Remove VideoCoreBase itself - free the memory */
         ULONG size = VideoCoreBase->vc_LibNode.LibBase.lib_NegSize + VideoCoreBase->vc_LibNode.LibBase.lib_PosSize;
@@ -502,8 +502,8 @@ static uint32_t ExtFunc()
 struct VideoCoreBase * vc_Init(REGARG(struct VideoCoreBase *base, "d0"), REGARG(BPTR seglist, "a0"), REGARG(struct ExecBase *SysBase, "a6"))
 {
     struct VideoCoreBase *VideoCoreBase = base;
-    VideoCoreBase->vc_SegList = seglist;
-    VideoCoreBase->vc_SysBase = SysBase;
+    VideoCoreBase->vc_LibNode.SegList = (APTR)seglist;
+    VideoCoreBase->vc_LibNode.ExecBase = SysBase;
     VideoCoreBase->vc_LibNode.LibBase.lib_Revision = VC4CARD_REVISION;
     VideoCoreBase->vc_Enabled = -1;
 

@@ -109,7 +109,7 @@ static inline int find_first_set(const ULONG *bitmap, int max_bits) {
 }
 
 void BuddyInit(struct VideoCoreBase *base) {
-    struct ExecBase *SysBase = base->vc_SysBase;
+    struct ExecBase *SysBase = base->vc_LibNode.ExecBase;
     BuddyAllocator *alloc = AllocMem(sizeof(BuddyAllocator), MEMF_CLEAR);
 
     base->vc_BuddyAllocator = (APTR)alloc;

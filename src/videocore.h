@@ -36,8 +36,6 @@ enum SwitchMode {
 
 struct VideoCoreBase {
     struct CardBase         vc_LibNode;
-    BPTR                    vc_SegList;
-    struct ExecBase *       vc_SysBase;
     APTR                    vc_DeviceTreeBase;
     APTR                    vc_UnicamBase;
     APTR                    vc_MailboxBase;
