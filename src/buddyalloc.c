@@ -109,10 +109,10 @@ static inline int find_first_set(const ULONG *bitmap, int max_bits) {
 }
 
 void BuddyInit(struct VideoCoreBase *base) {
-    struct ExecBase *SysBase = base->vc4_SysBase;
+    struct ExecBase *SysBase = base->vc_SysBase;
     BuddyAllocator *alloc = AllocMem(sizeof(BuddyAllocator), MEMF_CLEAR);
 
-    base->vc4_BuddyAllocator = (APTR)alloc;
+    base->vc_BuddyAllocator = (APTR)alloc;
 
     if (alloc) {
         // Fill from largest order down
@@ -133,7 +133,7 @@ void BuddyInit(struct VideoCoreBase *base) {
 }
 
 ULONG BuddyAlloc(struct VideoCoreBase *base, UWORD size) {
-    BuddyAllocator *alloc = (BuddyAllocator *)base->vc4_BuddyAllocator;
+    BuddyAllocator *alloc = (BuddyAllocator *)base->vc_BuddyAllocator;
     
     int order = order_for_size(size);
     if (order >= NUM_ORDERS) {
@@ -169,7 +169,7 @@ ULONG BuddyAlloc(struct VideoCoreBase *base, UWORD size) {
 }
 
 void BuddyFree(struct VideoCoreBase *base, ULONG id) {
-    BuddyAllocator *alloc = (BuddyAllocator *)base->vc4_BuddyAllocator;
+    BuddyAllocator *alloc = (BuddyAllocator *)base->vc_BuddyAllocator;
     UWORD offset = BUDDY_OFFSET(id);
     UWORD size = BUDDY_SIZE(id);
 

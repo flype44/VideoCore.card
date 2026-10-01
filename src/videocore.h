@@ -35,65 +35,65 @@ enum SwitchMode {
 };
 
 struct VideoCoreBase {
-    struct CardBase         vc4_LibNode;
-    BPTR                    vc4_SegList;
-    struct ExecBase *       vc4_SysBase;
-    struct ExpansionBase *  vc4_ExpansionBase;
-    struct DOSBase *        vc4_DOSBase;
-    struct IntuitionBase *  vc4_IntuitionBase;
-    APTR                    vc4_DeviceTreeBase;
-    APTR                    vc4_UnicamBase;
-    APTR                    vc4_MailboxBase;
-    APTR                    vc4_HVS;
-    APTR                    vc4_DisplayList;    // HVS display list memory, set by the InitChip of the family
-    void                  (*vc4_ConstructUnicamDL)(struct VideoCoreBase *);  // display list of Unicam for an old unicam.resource, set by InitChip
-    APTR                    vc4_BuddyAllocator;
-    APTR                    vc4_MemBase;
-    uint32_t                vc4_MemSize;
-    APTR                    vc4_Unicambuffer;
-    ULONG                   vc4_UnicambufferSize;
-    ULONG                   vc4_UnicamDL;
-    APTR                    vc4_Framebuffer;
-    uint32_t                vc4_Pitch;
-    uint16_t                vc4_Enabled;
-    uint8_t                 vc4_VideoCore6;
+    struct CardBase         vc_LibNode;
+    BPTR                    vc_SegList;
+    struct ExecBase *       vc_SysBase;
+    struct ExpansionBase *  vc_ExpansionBase;
+    struct DOSBase *        vc_DOSBase;
+    struct IntuitionBase *  vc_IntuitionBase;
+    APTR                    vc_DeviceTreeBase;
+    APTR                    vc_UnicamBase;
+    APTR                    vc_MailboxBase;
+    APTR                    vc_HVS;
+    APTR                    vc_DisplayList;    // HVS display list memory, set by the InitChip of the family
+    void                  (*vc_ConstructUnicamDL)(struct VideoCoreBase *);  // display list of Unicam for an old unicam.resource, set by InitChip
+    APTR                    vc_BuddyAllocator;
+    APTR                    vc_MemBase;
+    uint32_t                vc_MemSize;
+    APTR                    vc_Unicambuffer;
+    ULONG                   vc_UnicambufferSize;
+    ULONG                   vc_UnicamDL;
+    APTR                    vc_Framebuffer;
+    uint32_t                vc_Pitch;
+    uint16_t                vc_Enabled;
+    uint8_t                 vc_VideoCore6;
 
-    struct Size             vc4_DispSize;
+    struct Size             vc_DispSize;
 
-    APTR                    vc4_VPU_CopyBlock;
+    APTR                    vc_VPU_CopyBlock;
 
-    ULONG                   vc4_ActivePlane;
-    ULONG                   vc4_FreePlane;
+    ULONG                   vc_ActivePlane;
+    ULONG                   vc_FreePlane;
 
-    ULONG                   vc4_Scaler;
-    UBYTE                   vc4_Phase;
-    ULONG                   vc4_VertFreq;
-    ULONG                   vc4_Kernel_B; // FLOAT!
-    ULONG                   vc4_Kernel_C; // FLOAT!
-    UBYTE                   vc4_UseKernel;
-    UBYTE                   vc4_SpriteAlpha;
-    UBYTE                   vc4_SpriteVisible;
+    ULONG                   vc_Scaler;
+    UBYTE                   vc_Phase;
+    ULONG                   vc_VertFreq;
+    ULONG                   vc_Kernel_B; // FLOAT!
+    ULONG                   vc_Kernel_C; // FLOAT!
+    UBYTE                   vc_UseKernel;
+    UBYTE                   vc_SpriteAlpha;
+    UBYTE                   vc_SpriteVisible;
 
-    ULONG                   vc4_ScaleX;
-    ULONG                   vc4_ScaleY;
+    ULONG                   vc_ScaleX;
+    ULONG                   vc_ScaleY;
 
-    WORD                    vc4_MouseX;
-    WORD                    vc4_MouseY;
-    WORD                    vc4_OffsetX;
-    WORD                    vc4_OffsetY;
+    WORD                    vc_MouseX;
+    WORD                    vc_MouseY;
+    WORD                    vc_OffsetX;
+    WORD                    vc_OffsetY;
 
-    volatile uint32_t *     vc4_PlaneCoord;
-    volatile uint32_t *     vc4_PlaneScalerX;
-    volatile uint32_t *     vc4_PlaneScalerY;
-    volatile uint32_t *     vc4_MouseCoord;
-    volatile uint32_t *     vc4_MousePalette;
-    volatile uint32_t *     vc4_PIPCoord;
-    volatile uint32_t *     vc4_Kernel;
+    volatile uint32_t *     vc_PlaneCoord;
+    volatile uint32_t *     vc_PlaneScalerX;
+    volatile uint32_t *     vc_PlaneScalerY;
+    volatile uint32_t *     vc_MouseCoord;
+    volatile uint32_t *     vc_MousePalette;
+    volatile uint32_t *     vc_PIPCoord;
+    volatile uint32_t *     vc_Kernel;
 
-    ULONG                   vc4_SpriteColors[3];
+    ULONG                   vc_SpriteColors[3];
 
-    struct MsgPort          *vc4_Port;
-    struct Task             *vc4_Task;
+    struct MsgPort          *vc_Port;
+    struct Task             *vc_Task;
 
     struct {
         APTR        lp_Addr;
@@ -101,20 +101,20 @@ struct VideoCoreBase {
         WORD        lp_X;
         WORD        lp_Y;
         RGBFTYPE    lp_Format;
-    }                       vc4_LastPanning;
+    }                       vc_LastPanning;
     
-    UBYTE *                 vc4_SpriteShape;
-    enum SwitchMode         vc4_SwitchMode;
-    UBYTE                   vc4_SwitchInverted;
-    UBYTE                   vc4_IntegerScaler;
-    UBYTE                   vc4_UnicamVisible;
-    ULONG                   vc4_ScalingKernel;
-    ULONG                   vc4_UnityKernel;
-    ULONG                   vc4_UnicamKernel;
+    UBYTE *                 vc_SpriteShape;
+    enum SwitchMode         vc_SwitchMode;
+    UBYTE                   vc_SwitchInverted;
+    UBYTE                   vc_IntegerScaler;
+    UBYTE                   vc_UnicamVisible;
+    ULONG                   vc_ScalingKernel;
+    ULONG                   vc_UnityKernel;
+    ULONG                   vc_UnicamKernel;
 
-    BOOL                    vc4_UseDPMS;
-    LONG                    vc4_DisplayID;
-    ULONG                   vc4_DisplayNum;
+    BOOL                    vc_UseDPMS;
+    LONG                    vc_DisplayID;
+    ULONG                   vc_DisplayNum;
 };
 
 void bug(const char * restrict format, ...);

@@ -224,7 +224,7 @@ static void HVS_WaitVBlank(struct VideoCoreBase *VideoCoreBase)
 {
     volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
 
-    do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VideoCoreBase->vc4_DispSize.height);
+    do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VideoCoreBase->vc_DispSize.height);
 }
 
 void HVS_SetKernel(struct VideoCoreBase *VideoCoreBase, ULONG kernel, ULONG b, ULONG c)
@@ -233,33 +233,33 @@ void HVS_SetKernel(struct VideoCoreBase *VideoCoreBase, ULONG kernel, ULONG b, U
     ULONG kernel_start = BUDDY_OFFSET(new_scaling_kernel);
 
     if (kernel)
-        compute_scaling_kernel(VideoCoreBase->vc4_DisplayList, kernel_start, b, c);
+        compute_scaling_kernel(VideoCoreBase->vc_DisplayList, kernel_start, b, c);
     else
-        compute_nearest_neighbour_kernel(VideoCoreBase->vc4_DisplayList, kernel_start);
+        compute_nearest_neighbour_kernel(VideoCoreBase->vc_DisplayList, kernel_start);
 
-    if (VideoCoreBase->vc4_Kernel)
+    if (VideoCoreBase->vc_Kernel)
     {
         HVS_WaitVBlank(VideoCoreBase);
 
-        wr32le(&VideoCoreBase->vc4_Kernel[0], kernel_start);
-        wr32le(&VideoCoreBase->vc4_Kernel[1], kernel_start);
-        wr32le(&VideoCoreBase->vc4_Kernel[2], kernel_start);
-        wr32le(&VideoCoreBase->vc4_Kernel[3], kernel_start);
+        wr32le(&VideoCoreBase->vc_Kernel[0], kernel_start);
+        wr32le(&VideoCoreBase->vc_Kernel[1], kernel_start);
+        wr32le(&VideoCoreBase->vc_Kernel[2], kernel_start);
+        wr32le(&VideoCoreBase->vc_Kernel[3], kernel_start);
 
-        wr32le(&VideoCoreBase->vc4_MouseCoord[12], kernel_start);
-        wr32le(&VideoCoreBase->vc4_MouseCoord[13], kernel_start);
-        wr32le(&VideoCoreBase->vc4_MouseCoord[14], kernel_start);
-        wr32le(&VideoCoreBase->vc4_MouseCoord[15], kernel_start);
+        wr32le(&VideoCoreBase->vc_MouseCoord[12], kernel_start);
+        wr32le(&VideoCoreBase->vc_MouseCoord[13], kernel_start);
+        wr32le(&VideoCoreBase->vc_MouseCoord[14], kernel_start);
+        wr32le(&VideoCoreBase->vc_MouseCoord[15], kernel_start);
     }
 
-    BuddyFree(VideoCoreBase, VideoCoreBase->vc4_ScalingKernel);
-    VideoCoreBase->vc4_ScalingKernel = new_scaling_kernel;
+    BuddyFree(VideoCoreBase, VideoCoreBase->vc_ScalingKernel);
+    VideoCoreBase->vc_ScalingKernel = new_scaling_kernel;
 }
 
 ULONG HVS_GetScaler(struct VideoCoreBase *VideoCoreBase)
 {
-    if (VideoCoreBase->vc4_PlaneScalerX)
-        return (LE32(*VideoCoreBase->vc4_PlaneScalerX) >> 30) & 3;
+    if (VideoCoreBase->vc_PlaneScalerX)
+        return (LE32(*VideoCoreBase->vc_PlaneScalerX) >> 30) & 3;
 
     return 0;
 }
@@ -268,32 +268,32 @@ void HVS_SetScaler(struct VideoCoreBase *VideoCoreBase, ULONG scaler)
 {
     HVS_WaitVBlank(VideoCoreBase);
 
-    if (VideoCoreBase->vc4_PlaneScalerX) {
-        ULONG val = LE32(*VideoCoreBase->vc4_PlaneScalerX);
+    if (VideoCoreBase->vc_PlaneScalerX) {
+        ULONG val = LE32(*VideoCoreBase->vc_PlaneScalerX);
         val = (val & 0x3fffffff) | (scaler << 30);
-        wr32le(VideoCoreBase->vc4_PlaneScalerX, val);
+        wr32le(VideoCoreBase->vc_PlaneScalerX, val);
     }
-    if (VideoCoreBase->vc4_PlaneScalerY) {
-        ULONG val = LE32(*VideoCoreBase->vc4_PlaneScalerY);
+    if (VideoCoreBase->vc_PlaneScalerY) {
+        ULONG val = LE32(*VideoCoreBase->vc_PlaneScalerY);
         val = (val & 0x3fffffff) | (scaler << 30);
-        wr32le(VideoCoreBase->vc4_PlaneScalerY, val);
+        wr32le(VideoCoreBase->vc_PlaneScalerY, val);
     }
 
-    if (VideoCoreBase->vc4_ScaleX != 0x10000) {
-        ULONG val = LE32(VideoCoreBase->vc4_MouseCoord[9]);
+    if (VideoCoreBase->vc_ScaleX != 0x10000) {
+        ULONG val = LE32(VideoCoreBase->vc_MouseCoord[9]);
         val = (val & 0x3fffffff) | (scaler << 30);
-        wr32le(&VideoCoreBase->vc4_MouseCoord[9], val);
+        wr32le(&VideoCoreBase->vc_MouseCoord[9], val);
 
-        val = LE32(VideoCoreBase->vc4_MouseCoord[10]);
+        val = LE32(VideoCoreBase->vc_MouseCoord[10]);
         val = (val & 0x3fffffff) | (scaler << 30);
-        wr32le(&VideoCoreBase->vc4_MouseCoord[10], val);
+        wr32le(&VideoCoreBase->vc_MouseCoord[10], val);
     }
 }
 
 ULONG HVS_GetPhase(struct VideoCoreBase *VideoCoreBase)
 {
-    if (VideoCoreBase->vc4_PlaneScalerX)
-        return LE32(*VideoCoreBase->vc4_PlaneScalerX) & 0xff;
+    if (VideoCoreBase->vc_PlaneScalerX)
+        return LE32(*VideoCoreBase->vc_PlaneScalerX) & 0xff;
 
     return 0;
 }
@@ -302,32 +302,32 @@ void HVS_SetPhase(struct VideoCoreBase *VideoCoreBase, ULONG phase)
 {
     HVS_WaitVBlank(VideoCoreBase);
 
-    if (VideoCoreBase->vc4_PlaneScalerX) {
-        ULONG val = LE32(*VideoCoreBase->vc4_PlaneScalerX);
+    if (VideoCoreBase->vc_PlaneScalerX) {
+        ULONG val = LE32(*VideoCoreBase->vc_PlaneScalerX);
         val = (val & 0xffffff00) | (phase & 0xff);
-        wr32le(VideoCoreBase->vc4_PlaneScalerX, val);
+        wr32le(VideoCoreBase->vc_PlaneScalerX, val);
     }
-    if (VideoCoreBase->vc4_PlaneScalerY) {
-        ULONG val = LE32(*VideoCoreBase->vc4_PlaneScalerY);
+    if (VideoCoreBase->vc_PlaneScalerY) {
+        ULONG val = LE32(*VideoCoreBase->vc_PlaneScalerY);
         val = (val & 0xffffff00) | (phase & 0xff);
-        wr32le(VideoCoreBase->vc4_PlaneScalerY, val);
+        wr32le(VideoCoreBase->vc_PlaneScalerY, val);
     }
 
-    if (VideoCoreBase->vc4_ScaleX != 0x10000) {
-        ULONG val = LE32(VideoCoreBase->vc4_MouseCoord[9]);
+    if (VideoCoreBase->vc_ScaleX != 0x10000) {
+        ULONG val = LE32(VideoCoreBase->vc_MouseCoord[9]);
         val = (val & 0xffffff00) | (phase & 0xff);
-        wr32le(&VideoCoreBase->vc4_MouseCoord[9], val);
+        wr32le(&VideoCoreBase->vc_MouseCoord[9], val);
 
-        val = LE32(VideoCoreBase->vc4_MouseCoord[10]);
+        val = LE32(VideoCoreBase->vc_MouseCoord[10]);
         val = (val & 0xffffff00) | (phase & 0xff);
-        wr32le(&VideoCoreBase->vc4_MouseCoord[10], val);
+        wr32le(&VideoCoreBase->vc_MouseCoord[10], val);
     }
 }
 
 void HVS_UpdateUnicamDL(struct VideoCoreBase *VideoCoreBase)
 {
     /* Check if unicam.resource is there and the version is right */
-    APTR UnicamBase = VideoCoreBase->vc4_UnicamBase;
+    APTR UnicamBase = VideoCoreBase->vc_UnicamBase;
     struct Library *ub = UnicamBase;
 
     if (ub != NULL && (ub->lib_Version > 1 || (ub->lib_Version == 1 && ub->lib_Revision >= 2))) {
@@ -335,35 +335,35 @@ void HVS_UpdateUnicamDL(struct VideoCoreBase *VideoCoreBase)
         ULONG idx = BuddyAlloc(VideoCoreBase, sz);
 
         /* Alloc slot for unicam displaylist and initialize it by unicam itself */
-        UnicamConstructDL(VideoCoreBase->vc4_DisplayList, BUDDY_OFFSET(idx));
+        UnicamConstructDL(VideoCoreBase->vc_DisplayList, BUDDY_OFFSET(idx));
 
-        if (VideoCoreBase->vc4_UnicamVisible) {
+        if (VideoCoreBase->vc_UnicamVisible) {
             wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(idx));
         }
 
         /* Set the new pointer to unicam display list */
-        BuddyFree(VideoCoreBase, VideoCoreBase->vc4_UnicamDL);
-        VideoCoreBase->vc4_UnicamDL = idx;
+        BuddyFree(VideoCoreBase, VideoCoreBase->vc_UnicamDL);
+        VideoCoreBase->vc_UnicamDL = idx;
     }
 }
 
 /* Builds the scaling kernels and the display list of Unicam in the display list memory */
 void HVS_Init(struct VideoCoreBase *VideoCoreBase)
 {
-    APTR UnicamBase = VideoCoreBase->vc4_UnicamBase;
+    APTR UnicamBase = VideoCoreBase->vc_UnicamBase;
 
-    VideoCoreBase->vc4_ScalingKernel = BuddyAlloc(VideoCoreBase, 11);
-    ULONG kernel_start = BUDDY_OFFSET(VideoCoreBase->vc4_ScalingKernel);
+    VideoCoreBase->vc_ScalingKernel = BuddyAlloc(VideoCoreBase, 11);
+    ULONG kernel_start = BUDDY_OFFSET(VideoCoreBase->vc_ScalingKernel);
 
-    if (VideoCoreBase->vc4_UseKernel)
-        compute_scaling_kernel(VideoCoreBase->vc4_DisplayList, kernel_start, VideoCoreBase->vc4_Kernel_B, VideoCoreBase->vc4_Kernel_C);
+    if (VideoCoreBase->vc_UseKernel)
+        compute_scaling_kernel(VideoCoreBase->vc_DisplayList, kernel_start, VideoCoreBase->vc_Kernel_B, VideoCoreBase->vc_Kernel_C);
     else
-        compute_nearest_neighbour_kernel(VideoCoreBase->vc4_DisplayList, kernel_start);
+        compute_nearest_neighbour_kernel(VideoCoreBase->vc_DisplayList, kernel_start);
 
-    VideoCoreBase->vc4_UnityKernel = BuddyAlloc(VideoCoreBase, 11);
-    ULONG unity_kernel = BUDDY_OFFSET(VideoCoreBase->vc4_UnityKernel);
+    VideoCoreBase->vc_UnityKernel = BuddyAlloc(VideoCoreBase, 11);
+    ULONG unity_kernel = BUDDY_OFFSET(VideoCoreBase->vc_UnityKernel);
 
-    compute_nearest_neighbour_kernel(VideoCoreBase->vc4_DisplayList, unity_kernel);
+    compute_nearest_neighbour_kernel(VideoCoreBase->vc_DisplayList, unity_kernel);
 
     /* If unicam.resource is new enough, let it construct unicam display list */
     struct Library *ub = (struct Library *)UnicamBase;
@@ -375,14 +375,14 @@ void HVS_Init(struct VideoCoreBase *VideoCoreBase)
             
             bug("[VC] Constructing Unicam DL using unicam.resource\n");
 
-            VideoCoreBase->vc4_UnicamDL = BuddyAlloc(VideoCoreBase, sz);
-            idx = BUDDY_OFFSET(VideoCoreBase->vc4_UnicamDL);
+            VideoCoreBase->vc_UnicamDL = BuddyAlloc(VideoCoreBase, sz);
+            idx = BUDDY_OFFSET(VideoCoreBase->vc_UnicamDL);
 
-            UnicamConstructDL(VideoCoreBase->vc4_DisplayList, idx);
+            UnicamConstructDL(VideoCoreBase->vc_DisplayList, idx);
         }
         else
         {
-            VideoCoreBase->vc4_ConstructUnicamDL(VideoCoreBase);
+            VideoCoreBase->vc_ConstructUnicamDL(VideoCoreBase);
         }
     }
 }
@@ -390,15 +390,15 @@ void HVS_Init(struct VideoCoreBase *VideoCoreBase)
 /* If Unicam was activated on boot the display list of Unicam has to be the displayed one */
 void HVS_ShowUnicam(struct VideoCoreBase *VideoCoreBase)
 {
-    APTR UnicamBase = VideoCoreBase->vc4_UnicamBase;
+    APTR UnicamBase = VideoCoreBase->vc_UnicamBase;
 
     if (UnicamBase != NULL)
     {
         if ((UnicamGetConfig() & UNICAMF_BOOT) != 0) 
         {
-            VideoCoreBase->vc4_UnicamVisible = TRUE;
+            VideoCoreBase->vc_UnicamVisible = TRUE;
             /* Both vc4 and vc6 switch the same way */
-            wr32le((volatile uint32_t *)0xf2400024, VideoCoreBase->vc4_UnicamDL);
+            wr32le((volatile uint32_t *)0xf2400024, VideoCoreBase->vc_UnicamDL);
         }
     }
 }

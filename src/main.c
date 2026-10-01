@@ -70,7 +70,7 @@ int _strcmp(const char *s1, const char *s2)
 
 static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreBase *VideoCoreBase, "a6"))
 {
-    struct ExecBase *SysBase = VideoCoreBase->vc4_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
     APTR DeviceTreeBase = NULL;
     APTR key;
 
@@ -93,7 +93,7 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreB
             
     }
 
-    VideoCoreBase->vc4_UnicamVisible = FALSE;
+    VideoCoreBase->vc_UnicamVisible = FALSE;
 
     /* Open device tree resource */
     DeviceTreeBase = (struct Library *)OpenResource((STRPTR)"devicetree.resource");
@@ -101,41 +101,41 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreB
         // If devicetree.resource can't be opened, this probably isn't Emu68.
         return 0;
     }
-    VideoCoreBase->vc4_DeviceTreeBase = DeviceTreeBase;
+    VideoCoreBase->vc_DeviceTreeBase = DeviceTreeBase;
 
     /* Open mailbox resource. Without it nothing can talk to the VideoCore firmware: no RTG, the system stays on the chipset display. */
-    VideoCoreBase->vc4_MailboxBase = OpenResource((STRPTR)MAILBOXNAME);
-    if (VideoCoreBase->vc4_MailboxBase == NULL) {
+    VideoCoreBase->vc_MailboxBase = OpenResource((STRPTR)MAILBOXNAME);
+    if (VideoCoreBase->vc_MailboxBase == NULL) {
         bug("[VC] Cannot open %s\n", MAILBOXNAME);
         return 0;
     }
 
     /* Open DOS, Expansion and Intuition, but I don't know yet why... */
-    VideoCoreBase->vc4_ExpansionBase = (struct ExpansionBase *)OpenLibrary("expansion.library", 0);
+    VideoCoreBase->vc_ExpansionBase = (struct ExpansionBase *)OpenLibrary("expansion.library", 0);
     
-    if (VideoCoreBase->vc4_ExpansionBase == NULL) {
+    if (VideoCoreBase->vc_ExpansionBase == NULL) {
         return 0;
     }
 
-    VideoCoreBase->vc4_IntuitionBase = (struct IntuitionBase *)OpenLibrary("intuition.library", 0);
+    VideoCoreBase->vc_IntuitionBase = (struct IntuitionBase *)OpenLibrary("intuition.library", 0);
     
-    if (VideoCoreBase->vc4_IntuitionBase == NULL) {
-        CloseLibrary((struct Library *)VideoCoreBase->vc4_ExpansionBase);
+    if (VideoCoreBase->vc_IntuitionBase == NULL) {
+        CloseLibrary((struct Library *)VideoCoreBase->vc_ExpansionBase);
         return 0;
     }
 
-    VideoCoreBase->vc4_DOSBase = (struct DOSBase *)OpenLibrary("dos.library", 0);
+    VideoCoreBase->vc_DOSBase = (struct DOSBase *)OpenLibrary("dos.library", 0);
 
-    if (VideoCoreBase->vc4_DOSBase == NULL) {
-        CloseLibrary((struct Library *)VideoCoreBase->vc4_IntuitionBase);
-        CloseLibrary((struct Library *)VideoCoreBase->vc4_ExpansionBase);
+    if (VideoCoreBase->vc_DOSBase == NULL) {
+        CloseLibrary((struct Library *)VideoCoreBase->vc_IntuitionBase);
+        CloseLibrary((struct Library *)VideoCoreBase->vc_ExpansionBase);
         return 0;
     }
 
     /* Find out base address of framebuffer and video memory size */
-    GetVCMemory(&VideoCoreBase->vc4_MemBase, &VideoCoreBase->vc4_MemSize, VideoCoreBase);
+    GetVCMemory(&VideoCoreBase->vc_MemBase, &VideoCoreBase->vc_MemSize, VideoCoreBase);
 
-    bug("[VC] GPU memory at %08lx, size: %ld KB\n", VideoCoreBase->vc4_MemBase, (ULONG)VideoCoreBase->vc4_MemSize / 1024);
+    bug("[VC] GPU memory at %08lx, size: %ld KB\n", VideoCoreBase->vc_MemBase, (ULONG)VideoCoreBase->vc_MemSize / 1024);
 
     /* Set basic data in BoardInfo structure */
 
@@ -147,9 +147,9 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreB
 
         if (reg == NULL)
         {
-            CloseLibrary((struct Library *)VideoCoreBase->vc4_DOSBase);
-            CloseLibrary((struct Library *)VideoCoreBase->vc4_IntuitionBase);
-            CloseLibrary((struct Library *)VideoCoreBase->vc4_ExpansionBase);
+            CloseLibrary((struct Library *)VideoCoreBase->vc_DOSBase);
+            CloseLibrary((struct Library *)VideoCoreBase->vc_IntuitionBase);
+            CloseLibrary((struct Library *)VideoCoreBase->vc_ExpansionBase);
             
             return 0;
         }
@@ -164,16 +164,16 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreB
 
     bug("[VC] Memory base at %08lx, size %ldMB\n", (ULONG)bi->MemoryBase, bi->MemorySize / (1024*1024));
 
-    while (VideoCoreBase->vc4_DispSize.width == 0 || VideoCoreBase->vc4_DispSize.height == 0)
+    while (VideoCoreBase->vc_DispSize.width == 0 || VideoCoreBase->vc_DispSize.height == 0)
     {
-        VideoCoreBase->vc4_DispSize = GetPhysicalSize(VideoCoreBase);
+        VideoCoreBase->vc_DispSize = GetPhysicalSize(VideoCoreBase);
     }
 
-    bug("[VC] Physical display size: %ld x %ld\n", (ULONG)VideoCoreBase->vc4_DispSize.width, (ULONG)VideoCoreBase->vc4_DispSize.height);
+    bug("[VC] Physical display size: %ld x %ld\n", (ULONG)VideoCoreBase->vc_DispSize.width, (ULONG)VideoCoreBase->vc_DispSize.height);
 
-    VideoCoreBase->vc4_ActivePlane = -1;
+    VideoCoreBase->vc_ActivePlane = -1;
 
-    VideoCoreBase->vc4_VideoCore6 = 0;
+    VideoCoreBase->vc_VideoCore6 = 0;
 
     key = DT_OpenKey("/gpu");
     if (key)
@@ -185,15 +185,15 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreB
             if (_strcmp("brcm,bcm2711-vc5", comp) == 0)
             {
                 bug("[VC] VideoCore6 detected\n");
-                VideoCoreBase->vc4_VideoCore6 = 1;
+                VideoCoreBase->vc_VideoCore6 = 1;
             }
         }
     }
 
 #if 0
-    VideoCoreBase->vc4_VPU_CopyBlock = (APTR)upload_code(vpu_block_copy, sizeof(vpu_block_copy), VideoCoreBase);
+    VideoCoreBase->vc_VPU_CopyBlock = (APTR)upload_code(vpu_block_copy, sizeof(vpu_block_copy), VideoCoreBase);
 
-    RawDoFmt("[vc4] VPU CopyBlock pointer at %08lx\n", &VideoCoreBase->vc4_VPU_CopyBlock, (APTR)putch, NULL);
+    RawDoFmt("[vc4] VPU CopyBlock pointer at %08lx\n", &VideoCoreBase->vc_VPU_CopyBlock, (APTR)putch, NULL);
 #endif
 
 //UNICAM
@@ -201,12 +201,12 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreB
     APTR UnicamBase = OpenResource("unicam.resource");
     if (UnicamBase != NULL)
     {
-        VideoCoreBase->vc4_UnicamBase = UnicamBase;
-        VideoCoreBase->vc4_Unicambuffer = UnicamGetFramebuffer();
-        VideoCoreBase->vc4_UnicambufferSize = UnicamGetFramebufferSize();
+        VideoCoreBase->vc_UnicamBase = UnicamBase;
+        VideoCoreBase->vc_Unicambuffer = UnicamGetFramebuffer();
+        VideoCoreBase->vc_UnicambufferSize = UnicamGetFramebufferSize();
         ULONG mode = UnicamGetMode();
         ULONG size = UnicamGetSize();
-        UnicamStart(VideoCoreBase->vc4_Unicambuffer, 1, (mode >> 8) & 0xff, size >> 16, size & 0xffff, mode & 0xff);
+        UnicamStart(VideoCoreBase->vc_Unicambuffer, 1, (mode >> 8) & 0xff, size >> 16, size & 0xffff, mode & 0xff);
     }
 
     return 1;
@@ -215,7 +215,7 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreB
 #include "messages.h"
 #include "dpms.h"
 
-static void vc4_Task()
+static void vc_Task()
 {
     struct ExecBase *SysBase = *(struct ExecBase **)4;
     struct Task *me = FindTask(NULL);
@@ -226,7 +226,7 @@ static void vc4_Task()
     port->mp_Node.ln_Name = "VideoCore";
     AddPort(port);
 
-    VideoCoreBase->vc4_Port = port;
+    VideoCoreBase->vc_Port = port;
     
     do {
         sigset = Wait(SIGBREAKF_CTRL_C | (1 << port->mp_SigBit));
@@ -244,9 +244,9 @@ static void vc4_Task()
                             break;
 
                         case VCMD_GET_KERNEL:
-                            vmsg->GetKernel.kernel = VideoCoreBase->vc4_UseKernel;
-                            vmsg->GetKernel.b = VideoCoreBase->vc4_Kernel_B;
-                            vmsg->GetKernel.c = VideoCoreBase->vc4_Kernel_C;
+                            vmsg->GetKernel.kernel = VideoCoreBase->vc_UseKernel;
+                            vmsg->GetKernel.b = VideoCoreBase->vc_Kernel_B;
+                            vmsg->GetKernel.c = VideoCoreBase->vc_Kernel_C;
                             break;
 
                         case VCMD_GET_SCALER:
@@ -281,7 +281,7 @@ static void vc4_Task()
 
 static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **ToolTypes, "a1"), REGARG(struct VideoCoreBase *VideoCoreBase, "a6"))
 {
-    struct ExecBase *SysBase = VideoCoreBase->vc4_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
     struct Library *MathIeeeSingBasBase = OpenLibrary("mathieeesingbas.library", 0);
 
     BuddyInit(VideoCoreBase);
@@ -290,7 +290,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         return 0;
 
     bi->CardBase = (struct CardBase *)VideoCoreBase;
-    bi->ExecBase = VideoCoreBase->vc4_SysBase;
+    bi->ExecBase = VideoCoreBase->vc_SysBase;
     bi->BoardName = "VideoCore";
     bi->BoardType = BT_PiStorm;
     bi->PaletteChipType = PCT_PiStorm;
@@ -316,7 +316,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     bi->MemoryClock = CLOCK_HZ;
 
     /* The chip fills the functions of the BoardInfo */
-    if (VideoCoreBase->vc4_VideoCore6)
+    if (VideoCoreBase->vc_VideoCore6)
         VC6_InitChip(bi);
     else
         VC4_InitChip(bi);
@@ -358,23 +358,23 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     hz = IEEESPFix(hz);
 
     bug("[VC] Detected refresh rate of %ld.%03ld Hz\n", mHz / 1000, mHz % 1000);
-    VideoCoreBase->vc4_VertFreq = hz;
+    VideoCoreBase->vc_VertFreq = hz;
 
-    VideoCoreBase->vc4_Phase = 128;
-    VideoCoreBase->vc4_Scaler = 0xc0000000;
-    VideoCoreBase->vc4_UseKernel = 1;
-    VideoCoreBase->vc4_SpriteAlpha = 255;
-    VideoCoreBase->vc4_SwitchMode = None;
-    VideoCoreBase->vc4_SwitchInverted = 0;
-    VideoCoreBase->vc4_Kernel_B = 0x3e800000; // 0.25
-    VideoCoreBase->vc4_Kernel_C = 0x3f400000; // 0.75
-    VideoCoreBase->vc4_IntegerScaler = 0;
-    VideoCoreBase->vc4_UseDPMS = FALSE;
+    VideoCoreBase->vc_Phase = 128;
+    VideoCoreBase->vc_Scaler = 0xc0000000;
+    VideoCoreBase->vc_UseKernel = 1;
+    VideoCoreBase->vc_SpriteAlpha = 255;
+    VideoCoreBase->vc_SwitchMode = None;
+    VideoCoreBase->vc_SwitchInverted = 0;
+    VideoCoreBase->vc_Kernel_B = 0x3e800000; // 0.25
+    VideoCoreBase->vc_Kernel_C = 0x3f400000; // 0.75
+    VideoCoreBase->vc_IntegerScaler = 0;
+    VideoCoreBase->vc_UseDPMS = FALSE;
 
-    APTR UnicamBase = VideoCoreBase->vc4_UnicamBase;
+    APTR UnicamBase = VideoCoreBase->vc_UnicamBase;
 
     /* If Unicam was activated on boot, pre-select CSI switch mode */
-    if (UnicamBase != NULL && (UnicamGetConfig() & UNICAMF_BOOT) != 0) VideoCoreBase->vc4_SwitchMode = CSI;
+    if (UnicamBase != NULL && (UnicamGetConfig() & UNICAMF_BOOT) != 0) VideoCoreBase->vc_SwitchMode = CSI;
 
     for (;ToolTypes[0] != NULL; ToolTypes++)
     {
@@ -400,7 +400,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
                 num = num * 10 + (*c++ - '0');
             }
 
-            VideoCoreBase->vc4_Phase = num;
+            VideoCoreBase->vc_Phase = num;
             bug("[VC] Setting VC4 phase to %ld\n", num);
         }
         else if (_strcmp(tt, "VC4_VERT") == '=')
@@ -415,27 +415,27 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
                 num = num * 10 + (*c++ - '0');
             }
 
-            VideoCoreBase->vc4_VertFreq = num;
+            VideoCoreBase->vc_VertFreq = num;
             bug("[VC] Setting vertical frequency to %ld\n", num);
         }
         else if (_strcmp(tt, "VC4_SCALER") == '=')
         {
             switch(tt[11]) {
                 case '0':
-                    VideoCoreBase->vc4_Scaler = 0x00000000;
+                    VideoCoreBase->vc_Scaler = 0x00000000;
                     break;
                 case '1':
-                    VideoCoreBase->vc4_Scaler = 0x40000000;
+                    VideoCoreBase->vc_Scaler = 0x40000000;
                     break;
                 case '2':
-                    VideoCoreBase->vc4_Scaler = 0x80000000;
+                    VideoCoreBase->vc_Scaler = 0x80000000;
                     break;
                 case '3':
-                    VideoCoreBase->vc4_Scaler = 0xc0000000;
+                    VideoCoreBase->vc_Scaler = 0xc0000000;
                     break;
             }
 
-            bug("[VC] Setting VC4 scaler to %lx\n", VideoCoreBase->vc4_Scaler);
+            bug("[VC] Setting VC4 scaler to %lx\n", VideoCoreBase->vc_Scaler);
         }
         else if (_strcmp(tt, "VC4_KERNEL") == '=')
         {
@@ -450,9 +450,9 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
             }
 
             if (num == 0)
-                VideoCoreBase->vc4_UseKernel = 0;
+                VideoCoreBase->vc_UseKernel = 0;
             else
-                VideoCoreBase->vc4_UseKernel = 1;
+                VideoCoreBase->vc_UseKernel = 1;
         }
         else if (_strcmp(tt, "VC4_KERNEL_B") == '=')
         {
@@ -466,7 +466,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
                 num = num * 10 + (*c++ - '0');
             }
 
-            VideoCoreBase->vc4_Kernel_B = IEEESPDiv(
+            VideoCoreBase->vc_Kernel_B = IEEESPDiv(
                 IEEESPFlt(num),
                 0x447a0000  // 1000.0
             );
@@ -487,7 +487,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
             if (num > 255) num=255;
 
-            VideoCoreBase->vc4_SpriteAlpha = num;
+            VideoCoreBase->vc_SpriteAlpha = num;
             bug("[VC] Sprite opacity set to %ld\n", num);
         }
         else if (_strcmp(tt, "VC4_KERNEL_C") == '=')
@@ -502,7 +502,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
                 num = num * 10 + (*c++ - '0');
             }
 
-            VideoCoreBase->vc4_Kernel_C = IEEESPDiv(
+            VideoCoreBase->vc_Kernel_C = IEEESPDiv(
                 IEEESPFlt(num),
                 0x447a0000  // 1000.0
             );
@@ -524,27 +524,27 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
             const char *m = &tt[18];
             if (m[0] == 'C' && m[1] == 'T' && m[2] == 'S' && m[3] == 0)
             {
-                VideoCoreBase->vc4_SwitchMode = CTS;
+                VideoCoreBase->vc_SwitchMode = CTS;
             }
             else if (m[0] == 'D' && m[1] == 'T' && m[2] == 'R' && m[3] == 0)
             {
-                VideoCoreBase->vc4_SwitchMode = DTR;
+                VideoCoreBase->vc_SwitchMode = DTR;
             }
             else if (m[0] == 'R' && m[1] == 'T' && m[2] == 'S' && m[3] == 0)
             {
-                VideoCoreBase->vc4_SwitchMode = RTS;
+                VideoCoreBase->vc_SwitchMode = RTS;
             }
             else if (m[0] == 'S' && m[1] == 'E' && m[2] == 'L' && m[3] == 0)
             {
-                VideoCoreBase->vc4_SwitchMode = SEL;
+                VideoCoreBase->vc_SwitchMode = SEL;
             }
             else if (m[0] == 'C' && m[1] == 'S' && m[2] == 'I' && m[3] == 0)
             {
-                VideoCoreBase->vc4_SwitchMode = CSI;
+                VideoCoreBase->vc_SwitchMode = CSI;
             }
             else if (m[0] == 'N' && m[1] == 'O' && m[3] == 'N' && m[4] == 'E' && m[5] == 0)
             {
-                VideoCoreBase->vc4_SwitchMode = None;
+                VideoCoreBase->vc_SwitchMode = None;
             }
         }
         else if (_strcmp(tt, "VC4_SWITCH_INVERT") == '=')
@@ -553,11 +553,11 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
             const char *s = &tt[18];
             if (s[0] == 'Y' && s[1] == 'E' && s[2] == 'S' && s[3] == 0)
             {
-                VideoCoreBase->vc4_SwitchInverted = 1;
+                VideoCoreBase->vc_SwitchInverted = 1;
             }
             else if (s[0] == '1' && s[1] == 0)
             {
-                VideoCoreBase->vc4_SwitchInverted = 1;
+                VideoCoreBase->vc_SwitchInverted = 1;
             }
         }
         else if (_strcmp(tt, "VC4_INTEGER_SCALING") == '=')
@@ -566,18 +566,18 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
             const char *s = &tt[20];
             if (s[0] == 'Y' && s[1] == 'E' && s[2] == 'S' && s[3] == 0)
             {
-                VideoCoreBase->vc4_IntegerScaler = 1;
+                VideoCoreBase->vc_IntegerScaler = 1;
             }
             else if (s[0] == '1' && s[1] == 0)
             {
-                VideoCoreBase->vc4_IntegerScaler = 1;
+                VideoCoreBase->vc_IntegerScaler = 1;
             }
         }
         else if (_strcmp(tt, "VC4_DPMS") == 0)
         {
             /* Expose DPMS support to Picasso96, 
              * using the mailbox display power tag */
-            VideoCoreBase->vc4_UseDPMS = TRUE;
+            VideoCoreBase->vc_UseDPMS = TRUE;
         }
     }
 
@@ -587,15 +587,15 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     /* Scaling kernels and the display list of Unicam */
     HVS_Init(VideoCoreBase);
 
-    VideoCoreBase->vc4_Task = NewCreateTask(
-        TASKTAG_PC,         (Tag)vc4_Task,
+    VideoCoreBase->vc_Task = NewCreateTask(
+        TASKTAG_PC,         (Tag)vc_Task,
         TASKTAG_NAME,       (Tag)"VideoCore Task",
         TASKTAG_STACKSIZE,  10240,
         TASKTAG_USERDATA,   (Tag)VideoCoreBase,
         TAG_DONE
     );
 
-    VideoCoreBase->vc4_SpriteShape = AllocMem(MAXSPRITEWIDTH * MAXSPRITEHEIGHT, MEMF_FAST | MEMF_REVERSE | MEMF_CLEAR);
+    VideoCoreBase->vc_SpriteShape = AllocMem(MAXSPRITEWIDTH * MAXSPRITEHEIGHT, MEMF_FAST | MEMF_REVERSE | MEMF_CLEAR);
 
     bug("[VC] InitCard ready\n");
 
@@ -610,8 +610,8 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 static struct VideoCoreBase * OpenLib(REGARG(ULONG version, "d0"), REGARG(struct VideoCoreBase *VideoCoreBase, "a6"))
 {
     struct ExecBase *SysBase = *(struct ExecBase **)4;
-    VideoCoreBase->vc4_LibNode.LibBase.lib_OpenCnt++;
-    VideoCoreBase->vc4_LibNode.LibBase.lib_Flags &= ~LIBF_DELEXP;
+    VideoCoreBase->vc_LibNode.LibBase.lib_OpenCnt++;
+    VideoCoreBase->vc_LibNode.LibBase.lib_Flags &= ~LIBF_DELEXP;
 
     bug("[VC] OpenLib\n");
 
@@ -620,33 +620,33 @@ static struct VideoCoreBase * OpenLib(REGARG(ULONG version, "d0"), REGARG(struct
 
 static ULONG ExpungeLib(REGARG(struct VideoCoreBase *VideoCoreBase, "a6"))
 {
-    struct ExecBase *SysBase = VideoCoreBase->vc4_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
     BPTR segList = 0;
 
-    if (VideoCoreBase->vc4_LibNode.LibBase.lib_OpenCnt == 0)
+    if (VideoCoreBase->vc_LibNode.LibBase.lib_OpenCnt == 0)
     {
         /* Remove library from Exec's list */
-        Remove(&VideoCoreBase->vc4_LibNode.LibBase.lib_Node);
+        Remove(&VideoCoreBase->vc_LibNode.LibBase.lib_Node);
 
         /* Close all eventually opened libraries */
-        if (VideoCoreBase->vc4_ExpansionBase != NULL)
-            CloseLibrary((struct Library *)VideoCoreBase->vc4_ExpansionBase);
-        if (VideoCoreBase->vc4_DOSBase != NULL)
-            CloseLibrary((struct Library *)VideoCoreBase->vc4_DOSBase);
-        if (VideoCoreBase->vc4_IntuitionBase != NULL)
-            CloseLibrary((struct Library *)VideoCoreBase->vc4_IntuitionBase);
+        if (VideoCoreBase->vc_ExpansionBase != NULL)
+            CloseLibrary((struct Library *)VideoCoreBase->vc_ExpansionBase);
+        if (VideoCoreBase->vc_DOSBase != NULL)
+            CloseLibrary((struct Library *)VideoCoreBase->vc_DOSBase);
+        if (VideoCoreBase->vc_IntuitionBase != NULL)
+            CloseLibrary((struct Library *)VideoCoreBase->vc_IntuitionBase);
 
         /* Save seglist */
-        segList = VideoCoreBase->vc4_SegList;
+        segList = VideoCoreBase->vc_SegList;
 
         /* Remove VideoCoreBase itself - free the memory */
-        ULONG size = VideoCoreBase->vc4_LibNode.LibBase.lib_NegSize + VideoCoreBase->vc4_LibNode.LibBase.lib_PosSize;
-        FreeMem((APTR)((ULONG)VideoCoreBase - VideoCoreBase->vc4_LibNode.LibBase.lib_NegSize), size);
+        ULONG size = VideoCoreBase->vc_LibNode.LibBase.lib_NegSize + VideoCoreBase->vc_LibNode.LibBase.lib_PosSize;
+        FreeMem((APTR)((ULONG)VideoCoreBase - VideoCoreBase->vc_LibNode.LibBase.lib_NegSize), size);
     }
     else
     {
         /* Library is still in use, set delayed expunge flag */
-        VideoCoreBase->vc4_LibNode.LibBase.lib_Flags |= LIBF_DELEXP;
+        VideoCoreBase->vc_LibNode.LibBase.lib_Flags |= LIBF_DELEXP;
     }
 
     /* Return 0 or segList */
@@ -655,12 +655,12 @@ static ULONG ExpungeLib(REGARG(struct VideoCoreBase *VideoCoreBase, "a6"))
 
 static ULONG CloseLib(REGARG(struct VideoCoreBase *VideoCoreBase, "a6"))
 {
-    if (VideoCoreBase->vc4_LibNode.LibBase.lib_OpenCnt != 0)
-        VideoCoreBase->vc4_LibNode.LibBase.lib_OpenCnt--;
+    if (VideoCoreBase->vc_LibNode.LibBase.lib_OpenCnt != 0)
+        VideoCoreBase->vc_LibNode.LibBase.lib_OpenCnt--;
     
-    if (VideoCoreBase->vc4_LibNode.LibBase.lib_OpenCnt == 0)
+    if (VideoCoreBase->vc_LibNode.LibBase.lib_OpenCnt == 0)
     {
-        if (VideoCoreBase->vc4_LibNode.LibBase.lib_Flags & LIBF_DELEXP)
+        if (VideoCoreBase->vc_LibNode.LibBase.lib_Flags & LIBF_DELEXP)
             return ExpungeLib(VideoCoreBase);
     }
 
@@ -673,18 +673,18 @@ static uint32_t ExtFunc()
     return 0;
 }
 
-struct VideoCoreBase * vc4_Init(REGARG(struct VideoCoreBase *base, "d0"), REGARG(BPTR seglist, "a0"), REGARG(struct ExecBase *SysBase, "a6"))
+struct VideoCoreBase * vc_Init(REGARG(struct VideoCoreBase *base, "d0"), REGARG(BPTR seglist, "a0"), REGARG(struct ExecBase *SysBase, "a6"))
 {
     struct VideoCoreBase *VideoCoreBase = base;
-    VideoCoreBase->vc4_SegList = seglist;
-    VideoCoreBase->vc4_SysBase = SysBase;
-    VideoCoreBase->vc4_LibNode.LibBase.lib_Revision = VC4CARD_REVISION;
-    VideoCoreBase->vc4_Enabled = -1;
+    VideoCoreBase->vc_SegList = seglist;
+    VideoCoreBase->vc_SysBase = SysBase;
+    VideoCoreBase->vc_LibNode.LibBase.lib_Revision = VC4CARD_REVISION;
+    VideoCoreBase->vc_Enabled = -1;
 
     return VideoCoreBase;
 }
 
-static uint32_t vc4_functions[] = {
+static uint32_t vc_functions[] = {
     (uint32_t)OpenLib,
     (uint32_t)CloseLib,
     (uint32_t)ExpungeLib,
@@ -696,7 +696,7 @@ static uint32_t vc4_functions[] = {
 
 const uint32_t InitTable[4] = {
     sizeof(struct VideoCoreBase), 
-    (uint32_t)vc4_functions, 
+    (uint32_t)vc_functions, 
     0, 
-    (uint32_t)vc4_Init
+    (uint32_t)vc_Init
 };

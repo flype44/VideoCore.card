@@ -21,14 +21,14 @@ static void SetDPMSLevel(REGARG(struct BoardInfo *b, "a0"), REGARG(ULONG level, 
     }
 
     /* display power on or off */
-    BOOL ret = SetDisplayPower(VideoCoreBase->vc4_DisplayID, 
+    BOOL ret = SetDisplayPower(VideoCoreBase->vc_DisplayID, 
         (level == DPMS_OFF) ? 0 : 1, VideoCoreBase);
 
     /* display power debug */
     if (0)
     {
         bug("[VC4] SetDisplayPower(display_id: %ld, state: %ld): %ld\n", 
-            VideoCoreBase->vc4_DisplayID, (level == DPMS_OFF) ? 0 : 1, ret);
+            VideoCoreBase->vc_DisplayID, (level == DPMS_OFF) ? 0 : 1, ret);
     }
 }
 
@@ -36,7 +36,7 @@ static void SetDPMSLevel(REGARG(struct BoardInfo *b, "a0"), REGARG(ULONG level, 
    ToolType VC4_DPMS asked for it. */
 void DPMS_Init(struct BoardInfo *bi, struct VideoCoreBase *VideoCoreBase)
 {
-    if (VideoCoreBase->vc4_UseDPMS)
+    if (VideoCoreBase->vc_UseDPMS)
     {
         /* obtain the RPi primary display id, or -1 if not supported by the RPi firmware.
          * 
@@ -49,20 +49,20 @@ void DPMS_Init(struct BoardInfo *bi, struct VideoCoreBase *VideoCoreBase)
          */
         
         /* obtain the primary hdmi display num */
-        VideoCoreBase->vc4_DisplayNum = 0UL;
+        VideoCoreBase->vc_DisplayNum = 0UL;
         
         /* obtain the primary hdmi display id */
-        VideoCoreBase->vc4_DisplayID = GetDisplayID(
-            VideoCoreBase->vc4_DisplayNum, VideoCoreBase);
+        VideoCoreBase->vc_DisplayID = GetDisplayID(
+            VideoCoreBase->vc_DisplayNum, VideoCoreBase);
         
         /* attach the Picasso96 method if the display id is valid */
-        if (VideoCoreBase->vc4_DisplayID >= 0) {
+        if (VideoCoreBase->vc_DisplayID >= 0) {
             bi->SetDPMSLevel = (void *)SetDPMSLevel;
 
             /* the firmware keeps the display power state from one boot to the next:
              * a display which DPMS has switched off before a reboot would stay off,
              * so switch it on */
-            SetDisplayPower(VideoCoreBase->vc4_DisplayID, 1, VideoCoreBase);
+            SetDisplayPower(VideoCoreBase->vc_DisplayID, 1, VideoCoreBase);
         }
     }
 }

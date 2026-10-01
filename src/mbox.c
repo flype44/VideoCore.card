@@ -25,7 +25,7 @@
 
 void GetVCMemory(void **base, uint32_t *size, struct VideoCoreBase *VideoCoreBase)
 {
-    APTR MailboxBase = VideoCoreBase->vc4_MailboxBase;
+    APTR MailboxBase = VideoCoreBase->vc_MailboxBase;
     ULONG FBReq[8];
 
     FBReq[0] = 4 * 8;               // Length
@@ -48,7 +48,7 @@ void GetVCMemory(void **base, uint32_t *size, struct VideoCoreBase *VideoCoreBas
 
 struct Size GetPhysicalSize(struct VideoCoreBase *VideoCoreBase)
 {
-    APTR MailboxBase = VideoCoreBase->vc4_MailboxBase;
+    APTR MailboxBase = VideoCoreBase->vc_MailboxBase;
     ULONG FBReq[8];
     struct Size dimension;
 
@@ -71,7 +71,7 @@ struct Size GetPhysicalSize(struct VideoCoreBase *VideoCoreBase)
 
 void SetPhysicalSize(struct Size size, struct VideoCoreBase *VideoCoreBase)
 {
-    APTR MailboxBase = VideoCoreBase->vc4_MailboxBase;
+    APTR MailboxBase = VideoCoreBase->vc_MailboxBase;
     ULONG FBReq[8];
 
     FBReq[0] = 4 * 8;
@@ -88,7 +88,7 @@ void SetPhysicalSize(struct Size size, struct VideoCoreBase *VideoCoreBase)
 
 void SetVirtualSize(struct Size size, struct VideoCoreBase *VideoCoreBase)
 {
-    APTR MailboxBase = VideoCoreBase->vc4_MailboxBase;
+    APTR MailboxBase = VideoCoreBase->vc_MailboxBase;
     ULONG FBReq[8];
 
     FBReq[0] = 4 * 8;
@@ -105,7 +105,7 @@ void SetVirtualSize(struct Size size, struct VideoCoreBase *VideoCoreBase)
 
 void SetDepth(uint8_t depth, struct VideoCoreBase *VideoCoreBase)
 {
-    APTR MailboxBase = VideoCoreBase->vc4_MailboxBase;
+    APTR MailboxBase = VideoCoreBase->vc_MailboxBase;
     ULONG FBReq[7];
 
     FBReq[0] = 4 * 7;
@@ -121,7 +121,7 @@ void SetDepth(uint8_t depth, struct VideoCoreBase *VideoCoreBase)
 
 void AllocateBuffer(uint32_t alignment, void **base, uint32_t *size, struct VideoCoreBase *VideoCoreBase)
 {
-    APTR MailboxBase = VideoCoreBase->vc4_MailboxBase;
+    APTR MailboxBase = VideoCoreBase->vc_MailboxBase;
     ULONG FBReq[8];
 
     FBReq[0] = 4 * 8;
@@ -144,7 +144,7 @@ void AllocateBuffer(uint32_t alignment, void **base, uint32_t *size, struct Vide
 
 uint32_t GetPitch(struct VideoCoreBase *VideoCoreBase)
 {
-    APTR MailboxBase = VideoCoreBase->vc4_MailboxBase;
+    APTR MailboxBase = VideoCoreBase->vc_MailboxBase;
     ULONG FBReq[7];
 
     FBReq[0] = 4 * 7;
@@ -162,7 +162,7 @@ uint32_t GetPitch(struct VideoCoreBase *VideoCoreBase)
 
 void ReleaseBuffer(struct VideoCoreBase *VideoCoreBase)
 {
-    APTR MailboxBase = VideoCoreBase->vc4_MailboxBase;
+    APTR MailboxBase = VideoCoreBase->vc_MailboxBase;
     ULONG FBReq[6];
 
     FBReq[0] = 4 * 6;
@@ -177,7 +177,7 @@ void ReleaseBuffer(struct VideoCoreBase *VideoCoreBase)
 
 int BlankScreen(int blank, struct VideoCoreBase *VideoCoreBase)
 {
-    APTR MailboxBase = VideoCoreBase->vc4_MailboxBase;
+    APTR MailboxBase = VideoCoreBase->vc_MailboxBase;
     ULONG FBReq[7];
 
     /* This is the request the driver sent before it used mailbox.resource: the tag is
@@ -197,7 +197,7 @@ int BlankScreen(int blank, struct VideoCoreBase *VideoCoreBase)
 
 uint32_t AllocateMemory(uint32_t size, uint32_t alignment, uint32_t flags, struct VideoCoreBase *VideoCoreBase)
 {
-    APTR MailboxBase = VideoCoreBase->vc4_MailboxBase;
+    APTR MailboxBase = VideoCoreBase->vc_MailboxBase;
     ULONG FBReq[9];
 
     FBReq[0] = 4 * 9;
@@ -218,7 +218,7 @@ uint32_t AllocateMemory(uint32_t size, uint32_t alignment, uint32_t flags, struc
 
 uint32_t LockMemory(uint32_t handle, struct VideoCoreBase *VideoCoreBase)
 {
-    APTR MailboxBase = VideoCoreBase->vc4_MailboxBase;
+    APTR MailboxBase = VideoCoreBase->vc_MailboxBase;
     ULONG FBReq[7];
 
     FBReq[0] = 4 * 7;
@@ -238,7 +238,7 @@ uint32_t LockMemory(uint32_t handle, struct VideoCoreBase *VideoCoreBase)
 uint32_t ExecuteCode(uint32_t addr, uint32_t arg0, uint32_t arg1, uint32_t arg2, uint32_t arg3,
                      uint32_t arg4, uint32_t arg5, struct VideoCoreBase *VideoCoreBase)
 {
-    APTR MailboxBase = VideoCoreBase->vc4_MailboxBase;
+    APTR MailboxBase = VideoCoreBase->vc_MailboxBase;
     ULONG FBReq[13];
 
     FBReq[0] = 4 * 13;
@@ -263,7 +263,7 @@ uint32_t ExecuteCode(uint32_t addr, uint32_t arg0, uint32_t arg1, uint32_t arg2,
 
 uint32_t SetDomainState(uint32_t domain, uint32_t state, struct VideoCoreBase *VideoCoreBase)
 {
-    APTR MailboxBase = VideoCoreBase->vc4_MailboxBase;
+    APTR MailboxBase = VideoCoreBase->vc_MailboxBase;
     ULONG FBReq[8];
 
     FBReq[0] = 4 * 8;
@@ -284,7 +284,7 @@ uint32_t SetDomainState(uint32_t domain, uint32_t state, struct VideoCoreBase *V
 /* The display id of a display number, or -1 if the firmware has no such display */
 int32_t GetDisplayID(uint32_t display_num, struct VideoCoreBase *VideoCoreBase)
 {
-    APTR MailboxBase = VideoCoreBase->vc4_MailboxBase;
+    APTR MailboxBase = VideoCoreBase->vc_MailboxBase;
     ULONG FBReq[7];
 
     FBReq[0] = 4 * 7;
@@ -307,7 +307,7 @@ int32_t GetDisplayID(uint32_t display_num, struct VideoCoreBase *VideoCoreBase)
 /* Returns non zero if the firmware accepted the request */
 int SetDisplayPower(int32_t display_id, uint32_t state, struct VideoCoreBase *VideoCoreBase)
 {
-    APTR MailboxBase = VideoCoreBase->vc4_MailboxBase;
+    APTR MailboxBase = VideoCoreBase->vc_MailboxBase;
     ULONG FBReq[8];
 
     FBReq[0] = 4 * 8;
@@ -338,7 +338,7 @@ void init_display(struct Size dimensions, uint8_t depth, void **framebuffer, uin
 
 uint32_t upload_code(const void *code, uint32_t code_size, struct VideoCoreBase *VideoCoreBase)
 {
-    struct ExecBase *SysBase = VideoCoreBase->vc4_SysBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
     ULONG handle;
     ULONG phys_addr;
     UBYTE *ptr;
