@@ -632,39 +632,8 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         }
     }
 
-    VC4Base->vc4_ScalingKernel = BuddyAlloc(VC4Base, 11);
-    ULONG kernel_start = BUDDY_OFFSET(VC4Base->vc4_ScalingKernel);
-
-    if (VC4Base->vc4_UseKernel)
-        compute_scaling_kernel(VC4Base->vc4_DisplayList, kernel_start, VC4Base->vc4_Kernel_B, VC4Base->vc4_Kernel_C);
-    else
-        compute_nearest_neighbour_kernel(VC4Base->vc4_DisplayList, kernel_start);
-
-    VC4Base->vc4_UnityKernel = BuddyAlloc(VC4Base, 11);
-    ULONG unity_kernel = BUDDY_OFFSET(VC4Base->vc4_UnityKernel);
-
-    compute_nearest_neighbour_kernel(VC4Base->vc4_DisplayList, unity_kernel);
-
-    /* If unicam.resource is new enough, let it construct unicam display list */
-    struct Library *ub = (struct Library *)UnicamBase;
-    if (ub != NULL)
-    {
-        if (ub->lib_Version > 1 || (ub->lib_Version == 1 && ub->lib_Revision >= 2)) {
-            ULONG sz = (7 + UnicamConstructDL(NULL, 0)) & ~7;
-            ULONG idx = 0;
-            
-            bug("[VC] Constructing Unicam DL using unicam.resource\n");
-
-            VC4Base->vc4_UnicamDL = BuddyAlloc(VC4Base, sz);
-            idx = BUDDY_OFFSET(VC4Base->vc4_UnicamDL);
-
-            UnicamConstructDL(VC4Base->vc4_DisplayList, idx);
-        }
-        else
-        {
-            VC4Base->vc4_ConstructUnicamDL(VC4Base);
-        }
-    }
+    /* Scaling kernels and the display list of Unicam */
+    HVS_Init(VC4Base);
 
     VC4Base->vc4_Task = NewCreateTask(
         TASKTAG_PC,         (Tag)vc4_Task,
@@ -679,15 +648,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     bug("[VC] InitCard ready\n");
 
     /* If Unicam was activated on boot, make sure the pass-through is active at this moment */
-    if (UnicamBase != NULL)
-    {
-        if ((UnicamGetConfig() & UNICAMF_BOOT) != 0) 
-        {
-            VC4Base->vc4_UnicamVisible = TRUE;
-            /* Both vc4 and vc6 switch the same way */
-            wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_UnicamDL);
-        }
-    }
+    HVS_ShowUnicam(VC4Base);
 
     CloseLibrary(MathIeeeSingBasBase);
 

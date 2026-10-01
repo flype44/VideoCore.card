@@ -11,6 +11,8 @@ struct VC4Base;
 
 /* What the task does for the messages of the clients: they touch the HVS display lists and registers.
    The ones which change the display list wait for the vertical blank first. */
+void HVS_Init(struct VC4Base *VC4Base);
+void HVS_ShowUnicam(struct VC4Base *VC4Base);
 void HVS_SetKernel(struct VC4Base *VC4Base, ULONG kernel, ULONG b, ULONG c);
 ULONG HVS_GetScaler(struct VC4Base *VC4Base);
 void HVS_SetScaler(struct VC4Base *VC4Base, ULONG val);
