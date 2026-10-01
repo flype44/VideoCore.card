@@ -245,18 +245,10 @@ static void vc4_Task()
                             new_scaling_kernel = BuddyAlloc(VC4Base, 11);
                             kernel_start = BUDDY_OFFSET(new_scaling_kernel);
 
-                            if (vmsg->SetKernel.kernel) {
-                                if (VC4Base->vc4_VideoCore6)
-                                    compute_scaling_kernel((uint32_t *)0xf2404000, kernel_start, vmsg->SetKernel.b, vmsg->SetKernel.c);
-                                else
-                                    compute_scaling_kernel((uint32_t *)0xf2402000, kernel_start, vmsg->SetKernel.b, vmsg->SetKernel.c);
-                            }
-                            else {
-                                if (VC4Base->vc4_VideoCore6)
-                                    compute_nearest_neighbour_kernel((uint32_t *)0xf2404000, kernel_start);
-                                else
-                                    compute_nearest_neighbour_kernel((uint32_t *)0xf2402000, kernel_start);
-                            }
+                            if (vmsg->SetKernel.kernel)
+                                compute_scaling_kernel(VC4Base->vc4_DisplayList, kernel_start, vmsg->SetKernel.b, vmsg->SetKernel.c);
+                            else
+                                compute_nearest_neighbour_kernel(VC4Base->vc4_DisplayList, kernel_start);
                             if (VC4Base->vc4_Kernel)
                             {
                                 // Wait for vertical blank before updating the display list
@@ -363,12 +355,7 @@ static void vc4_Task()
                                     ULONG idx = BuddyAlloc(VC4Base, sz);
                                     
                                     /* Alloc slot for unicam displaylist and initialize it by unicam itself */
-                                    if (VC4Base->vc4_VideoCore6) {
-                                        UnicamConstructDL((APTR)0xf2404000, BUDDY_OFFSET(idx));
-                                    }
-                                    else {
-                                        UnicamConstructDL((APTR)0xf2402000, BUDDY_OFFSET(idx));
-                                    }
+                                    UnicamConstructDL(VC4Base->vc4_DisplayList, BUDDY_OFFSET(idx));
 
                                     if (VC4Base->vc4_UnicamVisible) {
                                         wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(idx));
@@ -728,23 +715,14 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     ULONG kernel_start = BUDDY_OFFSET(VC4Base->vc4_ScalingKernel);
 
     if (VC4Base->vc4_UseKernel)
-        if (VC4Base->vc4_VideoCore6)
-            compute_scaling_kernel((uint32_t *)0xf2404000, kernel_start, VC4Base->vc4_Kernel_B, VC4Base->vc4_Kernel_C);
-        else
-            compute_scaling_kernel((uint32_t *)0xf2402000, kernel_start, VC4Base->vc4_Kernel_B, VC4Base->vc4_Kernel_C);
+        compute_scaling_kernel(VC4Base->vc4_DisplayList, kernel_start, VC4Base->vc4_Kernel_B, VC4Base->vc4_Kernel_C);
     else
-        if (VC4Base->vc4_VideoCore6)
-            compute_nearest_neighbour_kernel((uint32_t *)0xf2404000, kernel_start);
-        else
-            compute_nearest_neighbour_kernel((uint32_t *)0xf2402000, kernel_start);
+        compute_nearest_neighbour_kernel(VC4Base->vc4_DisplayList, kernel_start);
 
     VC4Base->vc4_UnityKernel = BuddyAlloc(VC4Base, 11);
     ULONG unity_kernel = BUDDY_OFFSET(VC4Base->vc4_UnityKernel);
 
-    if (VC4Base->vc4_VideoCore6)
-        compute_nearest_neighbour_kernel(((uint32_t *)0xf2404000), unity_kernel);
-    else
-        compute_nearest_neighbour_kernel(((uint32_t *)0xf2402000), unity_kernel);
+    compute_nearest_neighbour_kernel(VC4Base->vc4_DisplayList, unity_kernel);
 
     /* If unicam.resource is new enough, let it construct unicam display list */
     struct Library *ub = (struct Library *)UnicamBase;
@@ -759,12 +737,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
             VC4Base->vc4_UnicamDL = BuddyAlloc(VC4Base, sz);
             idx = BUDDY_OFFSET(VC4Base->vc4_UnicamDL);
 
-            if (VC4Base->vc4_VideoCore6) {
-                UnicamConstructDL((APTR)0xf2404000, idx);
-            }
-            else {
-                UnicamConstructDL((APTR)0xf2402000, idx);
-            }
+            UnicamConstructDL(VC4Base->vc4_DisplayList, idx);
         }
         else
         {

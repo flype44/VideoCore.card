@@ -1070,6 +1070,10 @@ void VC6_ConstructUnicamDL(struct VC4Base *VC4Base)
 /* Fills the BoardInfo with the functions of VideoCore 6 */
 void VC6_InitChip(struct BoardInfo *bi)
 {
+    struct VC4Base *VC4Base = (struct VC4Base *)bi->CardBase;
+
+    VC4Base->vc4_DisplayList = (APTR)0xf2404000;
+
 // Basic P96 functions needed for "dumb frame buffer" operation
     bi->SetSwitch = (void *)VC6_SetSwitch;
     bi->SetColorArray = (void *)VC6_SetColorArray;

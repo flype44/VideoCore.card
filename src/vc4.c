@@ -1265,6 +1265,10 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
 /* Fills the BoardInfo with the functions of VideoCore 4 */
 void VC4_InitChip(struct BoardInfo *bi)
 {
+    struct VC4Base *VC4Base = (struct VC4Base *)bi->CardBase;
+
+    VC4Base->vc4_DisplayList = (APTR)0xf2402000;
+
     // Basic P96 functions needed for "dumb frame buffer" operation
     bi->SetSwitch = (void *)SetSwitch;
     bi->SetColorArray = (void *)SetColorArray;
