@@ -59,30 +59,6 @@ const struct Resident RomTag __attribute__((used)) = {
 const char deviceName[] = CARD_NAME;
 const char deviceIdString[] = VERSION_STRING;
 
-/*
-    Some properties, like e.g. #size-cells, are not always available in a key, but in that case the properties
-    should be searched for in the parent. The process repeats recursively until either root key is found
-    or the property is found, whichever occurs first
-*/
-CONST_APTR GetPropValueRecursive(APTR key, CONST_STRPTR property, APTR DeviceTreeBase)
-{
-    do {
-        /* Find the property first */
-        APTR prop = DT_FindProperty(key, property);
-
-        if (prop)
-        {
-            /* If property is found, get its value and exit */
-            return DT_GetPropValue(prop);
-        }
-        
-        /* Property was not found, go to the parent and repeat */
-        key = DT_GetParent(key);
-    } while (key);
-
-    return NULL;
-}
-
 int _strcmp(const char *s1, const char *s2)
 {
     while (*s1 == *s2++)
