@@ -45,6 +45,69 @@ static const ULONG mode_table[] = {
     [RGBFB_CLUT] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_PALETTE) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR)
 };
 
+/* The sprite plane: the hardware cursor, its palette and the end of the display list */
+static int VC6_WriteSprite(struct BoardInfo *b, const struct Panning *pan, int cnt)
+{
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_Family->DisplayList;
+
+    int mouse_pos = cnt;
+    cnt = mouse_pos + 1;
+
+    VideoCoreBase->vc_MouseCoord = &displist[cnt];
+    wr32le(&displist[cnt++], VC6_POS0_X(pan->SpriteX) |
+                             VC6_POS0_Y(pan->SpriteY));
+    wr32le(&displist[cnt++], (VC6_SCALER_POS2_ALPHA_MODE_PIPELINE << VC6_SCALER_POS2_ALPHA_MODE_SHIFT) | VC6_SCALER_POS2_ALPHA(0xfff));
+    wr32le(&displist[cnt++], VC6_POS1_H(pan->SpriteHeight) | VC6_POS1_W(pan->SpriteWidth));
+    wr32le(&displist[cnt++], VC6_POS2_H(MAXSPRITEHEIGHT) | VC6_POS2_W(MAXSPRITEWIDTH));
+    wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
+
+    wr32le(&displist[cnt++], 0xc0000000 | (ULONG)VideoCoreBase->vc_SpriteShape);
+    wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
+
+    // Write pitch
+    wr32le(&displist[cnt++], MAXSPRITEWIDTH);
+
+    int clut_off = cnt;
+    wr32le(&displist[cnt++], 0xc0000000 | (0x300 << 2));
+
+    // LMB address - just behind LMB of main plane
+    wr32le(&displist[cnt++], 16 * b->ModeInfo->Width / 2);
+
+    // Write PPF Scaling
+    wr32le(&displist[cnt++], (pan->Scale << 8) | VideoCoreBase->vc_Scaler | VideoCoreBase->vc_Phase);
+    if (b->ModeInfo->Flags & GMF_DOUBLESCAN)
+        wr32le(&displist[cnt++], ((pan->Scale << 7) & ~0xff) | VideoCoreBase->vc_Scaler | VideoCoreBase->vc_Phase);
+    else
+        wr32le(&displist[cnt++], (pan->Scale << 8) | VideoCoreBase->vc_Scaler | VideoCoreBase->vc_Phase);
+    wr32le(&displist[cnt++], 0); // Scratch written by HVS
+
+    // Write scaling kernel offset in dlist
+    wr32le(&displist[cnt++], pan->SpriteKernel);
+    wr32le(&displist[cnt++], pan->SpriteKernel);
+    wr32le(&displist[cnt++], pan->SpriteKernel);
+    wr32le(&displist[cnt++], pan->SpriteKernel);
+
+    wr32le(&displist[mouse_pos],
+        VC6_CONTROL_VALID               |
+        VC6_CONTROL_WORDS(cnt-mouse_pos)    |
+        VC6_CONTROL_ALPHA_EXPAND      |
+        VC6_CONTROL_RGB_EXPAND        |
+        mode_table[RGBFB_CLUT]
+    );
+
+    wr32le(&displist[cnt++], 0x80000000);
+    wr32le(&displist[clut_off], 0xc0000000 | (cnt << 2));
+
+    wr32le(&displist[cnt++], 0x00000000);
+    VideoCoreBase->vc_MousePalette = &displist[cnt];
+    wr32le(&displist[cnt++], VideoCoreBase->vc_SpriteColors[0]);
+    wr32le(&displist[cnt++], VideoCoreBase->vc_SpriteColors[1]);
+    wr32le(&displist[cnt++], VideoCoreBase->vc_SpriteColors[2]);
+
+    return cnt;
+}
+
 static void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"), 
                     REGARG(UWORD width, "d0"), REGARG(WORD x_offset, "d1"), 
                     REGARG(WORD y_offset, "d2"), REGARG(RGBFTYPE format, "d7"))
@@ -151,7 +214,12 @@ static void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
                 calc_width, calc_height, offset_x, offset_y);
     }
 
+    struct Panning pan;
     volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_Family->DisplayList;
+
+    pan.Scale = scale;
+    pan.SpriteWidth = sprite_width;
+    pan.SpriteHeight = sprite_height;
    
     if (unity) {
         if (offset_only) {
@@ -187,61 +255,10 @@ static void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
             VideoCoreBase->vc_PlaneScalerX = NULL;
             VideoCoreBase->vc_PlaneScalerY = NULL;
 
-            int mouse_pos = cnt;
-            cnt = mouse_pos + 1;
-
-            VideoCoreBase->vc_MouseCoord = &displist[cnt];
-            wr32le(&displist[cnt++], VC6_POS0_X(offset_x + VideoCoreBase->vc_MouseX - x_offset) |
-                                     VC6_POS0_Y(offset_y + VideoCoreBase->vc_MouseY - y_offset));
-            wr32le(&displist[cnt++], (VC6_SCALER_POS2_ALPHA_MODE_PIPELINE << VC6_SCALER_POS2_ALPHA_MODE_SHIFT) | VC6_SCALER_POS2_ALPHA(0xfff));
-            wr32le(&displist[cnt++], VC6_POS1_H(sprite_height) | VC6_POS1_W(sprite_width));
-            wr32le(&displist[cnt++], VC6_POS2_H(MAXSPRITEHEIGHT) | VC6_POS2_W(MAXSPRITEWIDTH));
-            wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
-
-            wr32le(&displist[cnt++], 0xc0000000 | (ULONG)VideoCoreBase->vc_SpriteShape);
-            wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
-
-            // Write pitch
-            wr32le(&displist[cnt++], MAXSPRITEWIDTH);
-
-            int clut_off = cnt;
-            wr32le(&displist[cnt++], 0xc0000000 | (0x300 << 2));
-
-            // LMB address - just behind LMB of main plane
-            wr32le(&displist[cnt++], 16 * b->ModeInfo->Width / 2);
-
-            // Write PPF Scaling
-            wr32le(&displist[cnt++], (scale << 8) | VideoCoreBase->vc_Scaler | VideoCoreBase->vc_Phase);
-            if (b->ModeInfo->Flags & GMF_DOUBLESCAN)
-                wr32le(&displist[cnt++], ((scale << 7) & ~0xff) | VideoCoreBase->vc_Scaler | VideoCoreBase->vc_Phase);
-            else
-                wr32le(&displist[cnt++], (scale << 8) | VideoCoreBase->vc_Scaler | VideoCoreBase->vc_Phase);
-            wr32le(&displist[cnt++], 0); // Scratch written by HVS
-
-            ULONG unity_kernel = BUDDY_OFFSET(VideoCoreBase->vc_UnityKernel);
-
-            // Write scaling kernel offset in dlist
-            wr32le(&displist[cnt++], unity_kernel);
-            wr32le(&displist[cnt++], unity_kernel);
-            wr32le(&displist[cnt++], unity_kernel);
-            wr32le(&displist[cnt++], unity_kernel);
-
-            wr32le(&displist[mouse_pos],
-                VC6_CONTROL_VALID               |
-                VC6_CONTROL_WORDS(cnt-mouse_pos)    |
-                VC6_CONTROL_ALPHA_EXPAND      |
-                VC6_CONTROL_RGB_EXPAND        |
-                mode_table[RGBFB_CLUT]
-            );
-
-            wr32le(&displist[cnt++], 0x80000000);
-            wr32le(&displist[clut_off], 0xc0000000 | (cnt << 2));
-
-            wr32le(&displist[cnt++], 0x00000000);
-            VideoCoreBase->vc_MousePalette = &displist[cnt];
-            wr32le(&displist[cnt++], VideoCoreBase->vc_SpriteColors[0]);
-            wr32le(&displist[cnt++], VideoCoreBase->vc_SpriteColors[1]);
-            wr32le(&displist[cnt++], VideoCoreBase->vc_SpriteColors[2]);
+            pan.SpriteX = offset_x + VideoCoreBase->vc_MouseX - x_offset;
+            pan.SpriteY = offset_y + VideoCoreBase->vc_MouseY - y_offset;
+            pan.SpriteKernel = BUDDY_OFFSET(VideoCoreBase->vc_UnityKernel);
+            cnt = VC6_WriteSprite(b, &pan, cnt);
 
 #if 0
             for (int i=pos; i < cnt; i++) {
@@ -317,59 +334,10 @@ static void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
                 mode_table[format]
             );
 
-            int mouse_pos = cnt;
-            cnt = mouse_pos + 1;
-
-            VideoCoreBase->vc_MouseCoord = &displist[cnt];
-            wr32le(&displist[cnt++], VC6_POS0_X(offset_x + 0x10000 * (VideoCoreBase->vc_MouseX - x_offset) / VideoCoreBase->vc_ScaleX) |
-                                     VC6_POS0_Y(offset_y + 0x10000 * (VideoCoreBase->vc_MouseY - y_offset) / VideoCoreBase->vc_ScaleY));
-            wr32le(&displist[cnt++], (VC6_SCALER_POS2_ALPHA_MODE_PIPELINE << VC6_SCALER_POS2_ALPHA_MODE_SHIFT) | VC6_SCALER_POS2_ALPHA(0xfff));
-            wr32le(&displist[cnt++], VC6_POS1_H(sprite_height) | VC6_POS1_W(sprite_width));
-            wr32le(&displist[cnt++], VC6_POS2_H(MAXSPRITEHEIGHT) | VC6_POS2_W(MAXSPRITEWIDTH));
-            wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
-
-            wr32le(&displist[cnt++], 0xc0000000 | (ULONG)VideoCoreBase->vc_SpriteShape);
-            wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
-
-            // Write pitch
-            wr32le(&displist[cnt++], MAXSPRITEWIDTH);
-
-            int clut_off = cnt;
-            wr32le(&displist[cnt++], 0xc0000000 | (0x300 << 2));
-
-            // LMB address - just behind LMB of main plane
-            wr32le(&displist[cnt++], 16 * b->ModeInfo->Width / 2);
-
-            // Write PPF Scaling
-            wr32le(&displist[cnt++], (scale << 8) | VideoCoreBase->vc_Scaler | VideoCoreBase->vc_Phase);
-            if (b->ModeInfo->Flags & GMF_DOUBLESCAN)
-                wr32le(&displist[cnt++], ((scale << 7) & ~0xff) | VideoCoreBase->vc_Scaler | VideoCoreBase->vc_Phase);
-            else
-                wr32le(&displist[cnt++], (scale << 8) | VideoCoreBase->vc_Scaler | VideoCoreBase->vc_Phase);
-            wr32le(&displist[cnt++], 0); // Scratch written by HVS
-
-            // Write scaling kernel offset in dlist
-            wr32le(&displist[cnt++], kernel_start);
-            wr32le(&displist[cnt++], kernel_start);
-            wr32le(&displist[cnt++], kernel_start);
-            wr32le(&displist[cnt++], kernel_start);
-
-            wr32le(&displist[mouse_pos],
-                VC6_CONTROL_VALID               |
-                VC6_CONTROL_WORDS(cnt-mouse_pos)    |
-                VC6_CONTROL_ALPHA_EXPAND      |
-                VC6_CONTROL_RGB_EXPAND        |
-                mode_table[RGBFB_CLUT]
-            );
-
-            wr32le(&displist[cnt++], 0x80000000);
-            wr32le(&displist[clut_off], 0xc0000000 | (cnt << 2));
-
-            wr32le(&displist[cnt++], 0x00000000);
-            VideoCoreBase->vc_MousePalette = &displist[cnt];
-            wr32le(&displist[cnt++], VideoCoreBase->vc_SpriteColors[0]);
-            wr32le(&displist[cnt++], VideoCoreBase->vc_SpriteColors[1]);
-            wr32le(&displist[cnt++], VideoCoreBase->vc_SpriteColors[2]);
+            pan.SpriteX = offset_x + 0x10000 * (VideoCoreBase->vc_MouseX - x_offset) / VideoCoreBase->vc_ScaleX;
+            pan.SpriteY = offset_y + 0x10000 * (VideoCoreBase->vc_MouseY - y_offset) / VideoCoreBase->vc_ScaleY;
+            pan.SpriteKernel = kernel_start;
+            cnt = VC6_WriteSprite(b, &pan, cnt);
 
 #if 0
             for (int i=pos; i < cnt; i++) {

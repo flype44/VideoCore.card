@@ -6,6 +6,16 @@
 #include "boardinfo.h"
 #include "videocore.h"
 
+/* The numbers of a panning which the words of the planes are made of */
+struct Panning {
+    ULONG Scale;                        /* scale of the screen on the display, 16.16 */
+    ULONG SpriteWidth;                  /* size of the sprite plane on the display */
+    ULONG SpriteHeight;
+    ULONG SpriteX;                      /* position of the sprite plane on the display */
+    ULONG SpriteY;
+    ULONG SpriteKernel;                 /* offset of the scaling kernel of the sprite in the display list memory */
+};
+
 /* What tells a family of the VideoCore from the other one. The functions are the ones of the BoardInfo which write
    the words of the display lists of the family. */
 struct ChipFamily {
