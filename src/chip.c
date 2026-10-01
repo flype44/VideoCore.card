@@ -226,9 +226,14 @@ static void Chip_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTY
     }
     else if (b->Flags & BIF_BIGSPRITE) {
         UWORD *data = b->MouseImage;
+        UWORD height = b->MouseHeight / 2;      // rtg.library gives the doubled height, the image has half of it
+
+        if (height > MAXSPRITEHEIGHT / 2)
+            height = MAXSPRITEHEIGHT / 2;
+
         data += 2;
 
-        for (int y=0; y < b->MouseHeight; y++) {
+        for (int y=0; y < height; y++) {
             UWORD p0 = *data++;
             UWORD p1 = *data++;
             UWORD mask = 0x8000;
