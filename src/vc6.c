@@ -150,7 +150,7 @@ static void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
                 calc_width, calc_height, offset_x, offset_y);
     }
 
-    volatile uint32_t *displist = (uint32_t *)0xf2404000;
+    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_DisplayList;
    
     if (unity) {
         if (offset_only) {
@@ -508,7 +508,7 @@ static void VC6_ConstructUnicamDL(struct VideoCoreBase *VideoCoreBase)
 
     ULONG cnt = 0x300; // Initial pointer to UnicamDL
 
-    volatile uint32_t *displist = (uint32_t *)0xf2404000;
+    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_DisplayList;
 
     if (crop_w == VideoCoreBase->vc_DispSize.width &&
         crop_h == VideoCoreBase->vc_DispSize.height && aspect == 1000)
