@@ -205,8 +205,6 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     if (MathIeeeSingBasBase == NULL)
         return 0;
 
-    bi->CardBase = (struct CardBase *)VideoCoreBase;
-    bi->ExecBase = VideoCoreBase->vc_SysBase;
     bi->BoardName = "VideoCore";
     bi->BoardType = BT_PiStorm;
     bi->PaletteChipType = PCT_PiStorm;
