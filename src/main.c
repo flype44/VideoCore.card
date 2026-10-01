@@ -382,30 +382,14 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         }
         else if (_strcmp(tt, "VC4_PHASE") == '=')
         {
-            const char *c = &tt[10];
-            ULONG num = 0;
-
-            while (*c) {
-                if (*c < '0' || *c > '9')
-                    break;
-                
-                num = num * 10 + (*c++ - '0');
-            }
+            ULONG num = _atoul(&tt[10]);
 
             VideoCoreBase->vc_Phase = num;
             bug("[VC] Setting VC4 phase to %ld\n", num);
         }
         else if (_strcmp(tt, "VC4_VERT") == '=')
         {
-            const char *c = &tt[10];
-            ULONG num = 0;
-
-            while (*c) {
-                if (*c < '0' || *c > '9')
-                    break;
-                
-                num = num * 10 + (*c++ - '0');
-            }
+            ULONG num = _atoul(&tt[10]);
 
             VideoCoreBase->vc_VertFreq = num;
             bug("[VC] Setting vertical frequency to %ld\n", num);
@@ -431,15 +415,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         }
         else if (_strcmp(tt, "VC4_KERNEL") == '=')
         {
-            const char *c = &tt[11];
-            ULONG num = 0;
-
-            while (*c) {
-                if (*c < '0' || *c > '9')
-                    break;
-                
-                num = num * 10 + (*c++ - '0');
-            }
+            ULONG num = _atoul(&tt[11]);
 
             if (num == 0)
                 VideoCoreBase->vc_UseKernel = 0;
@@ -448,15 +424,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         }
         else if (_strcmp(tt, "VC4_KERNEL_B") == '=')
         {
-            const char *c = &tt[13];
-            ULONG num = 0;
-
-            while (*c) {
-                if (*c < '0' || *c > '9')
-                    break;
-                
-                num = num * 10 + (*c++ - '0');
-            }
+            ULONG num = _atoul(&tt[13]);
 
             VideoCoreBase->vc_Kernel_B = IEEESPDiv(
                 IEEESPFlt(num),
@@ -467,15 +435,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         }
         else if (_strcmp(tt, "VC4_SPRITE_OPACITY") == '=')
         {
-            const char *c = &tt[19];
-            ULONG num = 0;
-
-            while (*c) {
-                if (*c < '0' || *c > '9')
-                    break;
-                
-                num = num * 10 + (*c++ - '0');
-            }
+            ULONG num = _atoul(&tt[19]);
 
             if (num > 255) num=255;
 
@@ -484,15 +444,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         }
         else if (_strcmp(tt, "VC4_KERNEL_C") == '=')
         {
-            const char *c = &tt[13];
-            ULONG num = 0;
-
-            while (*c) {
-                if (*c < '0' || *c > '9')
-                    break;
-                
-                num = num * 10 + (*c++ - '0');
-            }
+            ULONG num = _atoul(&tt[13]);
 
             VideoCoreBase->vc_Kernel_C = IEEESPDiv(
                 IEEESPFlt(num),

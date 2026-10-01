@@ -20,6 +20,7 @@ enum {
 /* Small C library functions, the driver is built without libc */
 int _strlen(CONST_STRPTR str);
 int _strcmp(const char *s1, const char *s2);
+ULONG _atoul(CONST_STRPTR str);
 
 struct Task * NewCreateTaskTags(struct TagItem *tags);
 

@@ -23,6 +23,17 @@ int _strcmp(const char *s1, const char *s2)
     return (*(const unsigned char *)s1 - *(const unsigned char *)(s2 - 1));
 }
 
+/* The decimal number at the start of the string, the digits end at the first other character */
+ULONG _atoul(CONST_STRPTR str)
+{
+    ULONG num = 0;
+
+    while (*str >= '0' && *str <= '9')
+        num = num * 10 + (*str++ - '0');
+
+    return num;
+}
+
 struct Task * NewCreateTaskTags(struct TagItem *tags)
 {
     struct ExecBase *SysBase = *(struct ExecBase **)4;
