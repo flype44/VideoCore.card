@@ -121,7 +121,7 @@ void WriteRegField(u32 nOffset, u32 nValue, u32 nMask) {
 void unicam_run(ULONG *address , UBYTE lanes, UBYTE datatype, ULONG width , ULONG height , UBYTE bbp, struct VC4Base * VC4Base) {
 
   //enable power domain
-  enable_unicam_domain(VC4Base);
+  SetDomainState(DOMAIN_UNICAM1, 1, VC4Base);
 
   //enable to clock to unicam
   setup_csiclk();

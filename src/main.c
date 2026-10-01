@@ -126,6 +126,13 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VC4Base *V
     }
     VC4Base->vc4_DeviceTreeBase = DeviceTreeBase;
 
+    /* Open mailbox resource. Without it nothing can talk to the VideoCore firmware: no RTG, the system stays on the chipset display. */
+    VC4Base->vc4_MailboxBase = OpenResource((STRPTR)MAILBOXNAME);
+    if (VC4Base->vc4_MailboxBase == NULL) {
+        bug("[VC] Cannot open %s\n", MAILBOXNAME);
+        return 0;
+    }
+
     /* Open DOS, Expansion and Intuition, but I don't know yet why... */
     VC4Base->vc4_ExpansionBase = (struct ExpansionBase *)OpenLibrary("expansion.library", 0);
     
@@ -148,90 +155,8 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VC4Base *V
         return 0;
     }
 
-    /* Alloc 128-byte aligned memory for mailbox requests */
-    VC4Base->vc4_RequestBase = AllocMem(MBOX_SIZE, MEMF_FAST);
-
-    if (VC4Base->vc4_RequestBase == NULL) {
-        CloseLibrary((struct Library *)VC4Base->vc4_DOSBase);
-        CloseLibrary((struct Library *)VC4Base->vc4_IntuitionBase);
-        CloseLibrary((struct Library *)VC4Base->vc4_ExpansionBase);
-        return 0;
-    }
-
-    VC4Base->vc4_Request = (ULONG *)(((intptr_t)VC4Base->vc4_RequestBase + 127) & ~127);
-
-    bug("[VC] Request buffer at %08lx\n", VC4Base->vc4_Request);
-
-    /* Get VC4 physical address of mailbox interface. Subsequently it will be translated to m68k physical address */
-    key = DT_OpenKey("/aliases");
-    if (key)
-    {
-        CONST_STRPTR mbox_alias = DT_GetPropValue(DT_FindProperty(key, "mailbox"));
-
-        DT_CloseKey(key);
-        
-        if (mbox_alias != NULL)
-        {
-            key = DT_OpenKey(mbox_alias);
-
-            if (key)
-            {
-                int size_cells = 1;
-                int address_cells = 1;
-
-                const ULONG * siz = GetPropValueRecursive(key, "#size_cells", DeviceTreeBase);
-                const ULONG * addr = GetPropValueRecursive(key, "#address-cells", DeviceTreeBase);
-
-                if (siz != NULL)
-                    size_cells = *siz;
-                
-                if (addr != NULL)
-                    address_cells = *addr;
-
-                const ULONG *reg = DT_GetPropValue(DT_FindProperty(key, "reg"));
-
-                VC4Base->vc4_MailBox = (APTR)reg[address_cells - 1];
-
-                DT_CloseKey(key);
-            }
-        }
-    }
-
-    /* Open /soc key and learn about VC4 to CPU mapping. Use it to adjust the addresses obtained above */
-    key = DT_OpenKey("/soc");
-    if (key)
-    {
-        int size_cells = 1;
-        int address_cells = 1;
-        int cpu_address_cells = 1;
-
-        const ULONG * siz = GetPropValueRecursive(key, "#size_cells", DeviceTreeBase);
-        const ULONG * addr = GetPropValueRecursive(key, "#address-cells", DeviceTreeBase);
-        const ULONG * cpu_addr = DT_GetPropValue(DT_FindProperty(DT_OpenKey("/"), "#address-cells"));
-
-        if (siz != NULL)
-            size_cells = *siz;
-        
-        if (addr != NULL)
-            address_cells = *addr;
-
-        if (cpu_addr != NULL)
-            cpu_address_cells = *cpu_addr;
-
-        const ULONG *reg = DT_GetPropValue(DT_FindProperty(key, "ranges"));
-
-        ULONG phys_vc4 = reg[address_cells - 1];
-        ULONG phys_cpu = reg[address_cells + cpu_address_cells - 1];
-
-        VC4Base->vc4_MailBox = (APTR)((ULONG)VC4Base->vc4_MailBox - phys_vc4 + phys_cpu);
-
-        DT_CloseKey(key);
-    }
-
-    bug("[VC] MailBox at %08lx\n", VC4Base->vc4_MailBox);
-
     /* Find out base address of framebuffer and video memory size */
-    get_vc_memory(&VC4Base->vc4_MemBase, &VC4Base->vc4_MemSize, VC4Base);
+    GetVCMemory(&VC4Base->vc4_MemBase, &VC4Base->vc4_MemSize, VC4Base);
 
     bug("[VC] GPU memory at %08lx, size: %ld KB\n", VC4Base->vc4_MemBase, (ULONG)VC4Base->vc4_MemSize / 1024);
 
@@ -245,7 +170,6 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VC4Base *V
 
         if (reg == NULL)
         {
-            FreeMem(VC4Base->vc4_RequestBase, MBOX_SIZE);          
             CloseLibrary((struct Library *)VC4Base->vc4_DOSBase);
             CloseLibrary((struct Library *)VC4Base->vc4_IntuitionBase);
             CloseLibrary((struct Library *)VC4Base->vc4_ExpansionBase);
@@ -265,7 +189,7 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VC4Base *V
 
     while (VC4Base->vc4_DispSize.width == 0 || VC4Base->vc4_DispSize.height == 0)
     {
-        VC4Base->vc4_DispSize = get_display_size(VC4Base);
+        VC4Base->vc4_DispSize = GetPhysicalSize(VC4Base);
     }
 
     bug("[VC] Physical display size: %ld x %ld\n", (ULONG)VC4Base->vc4_DispSize.width, (ULONG)VC4Base->vc4_DispSize.height);
@@ -937,7 +861,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         VC4Base->vc4_DisplayNum = 0UL;
         
         /* obtain the primary hdmi display id */
-        VC4Base->vc4_DisplayID = get_display_id(
+        VC4Base->vc4_DisplayID = GetDisplayID(
             VC4Base->vc4_DisplayNum, VC4Base);
         
         /* attach the Picasso96 method if the display id is valid */
@@ -947,7 +871,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
             /* the firmware keeps the display power state from one boot to the next:
              * a display which DPMS has switched off before a reboot would stay off,
              * so switch it on */
-            set_display_power(VC4Base->vc4_DisplayID, 1, VC4Base);
+            SetDisplayPower(VC4Base->vc4_DisplayID, 1, VC4Base);
         }
     }
 
@@ -1052,9 +976,6 @@ static ULONG ExpungeLib(REGARG(struct VC4Base *VC4Base, "a6"))
 
     if (VC4Base->vc4_LibNode.LibBase.lib_OpenCnt == 0)
     {
-        /* Free memory of mailbox request buffer */
-        FreeMem(VC4Base->vc4_RequestBase, 4*256);
-
         /* Remove library from Exec's list */
         Remove(&VC4Base->vc4_LibNode.LibBase.lib_Node);
 

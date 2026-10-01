@@ -130,10 +130,10 @@ UWORD VC6_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0
 
         switch(enabled) {
             case 0:
-                blank_screen(1, VC4Base);
+                BlankScreen(1, VC4Base);
                 break;
             default:
-                blank_screen(0, VC4Base);
+                BlankScreen(0, VC4Base);
                 break;
         }
     }
@@ -627,9 +627,9 @@ UWORD VC6_SetDisplay(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d
         bug("[VC4] SetDisplay %ld\n", enabled);
     }
     if (enabled) {
-        blank_screen(0, VC4Base);
+        BlankScreen(0, VC4Base);
     } else {
-        blank_screen(1, VC4Base);
+        BlankScreen(1, VC4Base);
     }
 #endif
 

@@ -329,10 +329,10 @@ UWORD SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
 
         switch(enabled) {
             case 0:
-                blank_screen(1, VC4Base);
+                BlankScreen(1, VC4Base);
                 break;
             default:
-                blank_screen(0, VC4Base);
+                BlankScreen(0, VC4Base);
                 break;
         }
     }
@@ -805,9 +805,9 @@ UWORD SetDisplay(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
         bug("[VC4] SetDisplay %ld\n", enabled);
     }
     if (enabled) {
-        blank_screen(0, VC4Base);
+        BlankScreen(0, VC4Base);
     } else {
-        blank_screen(1, VC4Base);
+        BlankScreen(1, VC4Base);
     }
 #endif
     return 1;
@@ -822,13 +822,13 @@ void SetDPMSLevel(REGARG(struct BoardInfo *b, "a0"), REGARG(ULONG level, "d0"))
     }
 
     /* display power on or off */
-    BOOL ret = set_display_power(VC4Base->vc4_DisplayID, 
+    BOOL ret = SetDisplayPower(VC4Base->vc4_DisplayID, 
         (level == DPMS_OFF) ? 0 : 1, VC4Base);
 
     /* display power debug */
     if (0)
     {
-        bug("[VC4] set_display_power(display_id: %ld, state: %ld): %ld\n", 
+        bug("[VC4] SetDisplayPower(display_id: %ld, state: %ld): %ld\n", 
             VC4Base->vc4_DisplayID, (level == DPMS_OFF) ? 0 : 1, ret);
     }
 }

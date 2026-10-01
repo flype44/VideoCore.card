@@ -17,7 +17,6 @@
 #define VC4CARD_VERSION  1
 #define VC4CARD_REVISION 0
 #define VC4CARD_PRIORITY 0
-#define MBOX_SIZE        (512 * 4)
 
 #define CLOCK_HZ        25000000
 
@@ -44,10 +43,8 @@ struct VC4Base {
     struct IntuitionBase *  vc4_IntuitionBase;
     APTR                    vc4_DeviceTreeBase;
     APTR                    vc4_UnicamBase;
-    APTR                    vc4_MailBox;
+    APTR                    vc4_MailboxBase;
     APTR                    vc4_HVS;
-    APTR                    vc4_RequestBase;
-    APTR                    vc4_Request;
     APTR                    vc4_BuddyAllocator;
     APTR                    vc4_MemBase;
     uint32_t                vc4_MemSize;

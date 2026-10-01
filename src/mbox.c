@@ -7,383 +7,347 @@
     with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+/*
+    The requests go through mailbox.resource: it serialises the callers, converts the buffer between
+    big and little endian and takes care of the DMA caches. The buffers below hold native longwords.
+*/
 
 #include <exec/types.h>
 #include <exec/execbase.h>
-#include <exec/io.h>
-#include <exec/errors.h>
 
 #include <proto/exec.h>
-#include <proto/expansion.h>
-#include <proto/devicetree.h>
-
-#include <libraries/configregs.h>
-#include <libraries/configvars.h>
+#include <proto/mailbox.h>
 
 #include <stdint.h>
 
 #include "emu68-vc4.h"
+#include "mbox.h"
 
-
-
-/* status register flags */
-
-#define MBOX_TX_FULL (1UL << 31)
-#define MBOX_RX_EMPTY (1UL << 30)
-#define MBOX_CHANMASK 0xF
-
-/* VideoCore tags used. */
-
-#define VCTAG_GET_ARM_MEMORY     0x00010005
-#define VCTAG_GET_CLOCK_RATE     0x00030002
-#define VCTAG_GET_DISPLAY_ID     0x00040016
-#define VCTAG_SET_DISPLAY_POWER  0x00048019
-
-
-static uint32_t mbox_recv(uint32_t channel, struct VC4Base * VC4Base)
+void GetVCMemory(void **base, uint32_t *size, struct VC4Base *VC4Base)
 {
-	volatile uint32_t *mbox_read = (uint32_t*)(VC4Base->vc4_MailBox);
-	volatile uint32_t *mbox_status = (uint32_t*)((uintptr_t)VC4Base->vc4_MailBox + 0x18);
-	uint32_t response, status;
+    APTR MailboxBase = VC4Base->vc4_MailboxBase;
+    ULONG FBReq[8];
 
-	do
-	{
-		do
-		{
-			status = LE32(*mbox_status);
-			asm volatile("nop");
-		}
-		while (status & MBOX_RX_EMPTY);
-
-		asm volatile("nop");
-		response = LE32(*mbox_read);
-		asm volatile("nop");
-	}
-	while ((response & MBOX_CHANMASK) != channel);
-
-	return (response & ~MBOX_CHANMASK);
-}
-
-static void mbox_send(uint32_t channel, uint32_t data, struct VC4Base * VC4Base)
-{
-	volatile uint32_t *mbox_write = (uint32_t*)((uintptr_t)VC4Base->vc4_MailBox + 0x20);
-	volatile uint32_t *mbox_status = (uint32_t*)((uintptr_t)VC4Base->vc4_MailBox + 0x18);
-	uint32_t status;
-
-	data &= ~MBOX_CHANMASK;
-	data |= channel & MBOX_CHANMASK;
-
-	do
-	{
-		status = LE32(*mbox_status);
-		asm volatile("nop");
-	}
-	while (status & MBOX_TX_FULL);
-
-	asm volatile("nop");
-	*mbox_write = LE32(data);
-}
-
-void get_vc_memory(void **base, uint32_t *size, struct VC4Base * VC4Base)
-{
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
-
-    ULONG *FBReq = VC4Base->vc4_Request;
-    ULONG len = 8*4;
-
-    FBReq[0] = LE32(4*8);
-    FBReq[1] = 0;
-    FBReq[2] = LE32(0x00010006);
-    FBReq[3] = LE32(8);
+    FBReq[0] = 4 * 8;               // Length
+    FBReq[1] = 0;                   // Request
+    FBReq[2] = MB_GET_VC_MEMORY;
+    FBReq[3] = 8;
     FBReq[4] = 0;
-    FBReq[5] = 0;
-    FBReq[6] = 0;
+    FBReq[5] = 0;                   // Base
+    FBReq[6] = 0;                   // Size
     FBReq[7] = 0;
 
-    CachePreDMA(FBReq, &len, 0);
-    mbox_send(8, (ULONG)FBReq, VC4Base);
-    mbox_recv(8, VC4Base);
-    CachePostDMA(FBReq, &len, 0);
+    MB_RawCommand(FBReq);
 
-    if (base) {
-        *base = (void *)(intptr_t)LE32(FBReq[5]);
-    }
+    if (base)
+        *base = (void *)(intptr_t)FBReq[5];
 
-    if (size) {
-        *size = LE32(FBReq[6]);
-    }
+    if (size)
+        *size = FBReq[6];
 }
 
-struct Size get_display_size_(struct VC4Base * VC4Base)
+struct Size GetPhysicalSize(struct VC4Base *VC4Base)
 {
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
-
-    ULONG *FBReq = VC4Base->vc4_Request;
-    ULONG len = 8*4;
-
-    struct Size sz;
-
-    FBReq[0] = LE32(4*8);
-    FBReq[1] = 0;
-    FBReq[2] = LE32(0x00040003);
-    FBReq[3] = LE32(8);
-    FBReq[4] = 0;
-    FBReq[5] = 0;
-    FBReq[6] = 0;
-    FBReq[7] = 0;
-
-    CachePreDMA(FBReq, &len, 0);
-    mbox_send(8, (ULONG)FBReq, VC4Base);
-    mbox_recv(8, VC4Base);
-    CachePostDMA(FBReq, &len, 0);
-
-    sz.width = LE32(FBReq[5]);
-    sz.height = LE32(FBReq[6]);
-
-    return sz;
-}
-
-struct Size get_display_size(struct VC4Base *VC4Base)
-{
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
-    int c = 1;
-    ULONG *FBReq = VC4Base->vc4_Request;
+    APTR MailboxBase = VC4Base->vc4_MailboxBase;
+    ULONG FBReq[8];
     struct Size dimension;
-    ULONG len;
 
-    FBReq[c++] = 0;
-    FBReq[c++] = LE32(0x40003);
-    FBReq[c++] = LE32(8);
-    FBReq[c++] = 0;
-    FBReq[c++] = LE32(0);
-    FBReq[c++] = LE32(0);
-    FBReq[c++] = 0;
+    FBReq[0] = 4 * 8;
+    FBReq[1] = 0;
+    FBReq[2] = MB_GET_PHYSICAL_SIZE;
+    FBReq[3] = 8;
+    FBReq[4] = 0;
+    FBReq[5] = 0;                   // Width
+    FBReq[6] = 0;                   // Height
+    FBReq[7] = 0;
 
-    FBReq[0] = LE32(c << 2);
+    MB_RawCommand(FBReq);
 
-    len = c * 4;
-
-    CachePreDMA(FBReq, &len, 0);
-    mbox_send(8, (ULONG)FBReq, VC4Base);
-    mbox_recv(8, VC4Base);
-    CachePostDMA(FBReq, &len, 0);
-
-    dimension.width = LE32(FBReq[5]);
-    dimension.height = LE32(FBReq[6]);
+    dimension.width = FBReq[5];
+    dimension.height = FBReq[6];
 
     return dimension;
 }
 
-void init_display(struct Size dimensions, uint8_t depth, void **framebuffer, uint32_t *pitch, struct VC4Base * VC4Base)
+void SetPhysicalSize(struct Size size, struct VC4Base *VC4Base)
 {
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    APTR MailboxBase = VC4Base->vc4_MailboxBase;
+    ULONG FBReq[8];
 
-    ULONG *FBReq = VC4Base->vc4_Request;
+    FBReq[0] = 4 * 8;
+    FBReq[1] = 0;
+    FBReq[2] = MB_SET_PHYSICAL_SIZE;
+    FBReq[3] = 8;
+    FBReq[4] = 0;
+    FBReq[5] = size.width;
+    FBReq[6] = size.height;
+    FBReq[7] = 0;
 
-    ULONG len;
-    int c = 1;
-    int pos_buffer_base = 0;
-    int pos_buffer_pitch = 0;
-
-    FBReq[c++] = 0;                 // Request
-    FBReq[c++] = LE32(0x48003);     // SET_RESOLUTION
-    FBReq[c++] = LE32(8);
-    FBReq[c++] = 0;
-    FBReq[c++] = LE32(dimensions.width);
-    FBReq[c++] = LE32(dimensions.height);
-
-    FBReq[c++] = LE32(0x48004);          // Virtual resolution: duplicate physical size...
-    FBReq[c++] = LE32(8);
-    FBReq[c++] = 0;
-    FBReq[c++] = LE32(dimensions.width);
-    FBReq[c++] = LE32(dimensions.height);
-
-    FBReq[c++] = LE32(0x48005);   // Set depth
-    FBReq[c++] = LE32(4);
-    FBReq[c++] = LE32(0);
-    FBReq[c++] = LE32(depth);
-
-    FBReq[c++] = LE32(0x40001); // Allocate buffer
-    FBReq[c++] = LE32(8);
-    FBReq[c++] = LE32(0);
-    pos_buffer_base = c;
-    FBReq[c++] = LE32(64);
-    FBReq[c++] = LE32(0);
-
-    FBReq[c++] = LE32(0x40008); // Get pitch
-    FBReq[c++] = LE32(4);
-    FBReq[c++] = LE32(0);
-    pos_buffer_pitch = c;
-    FBReq[c++] = LE32(0);
-
-    FBReq[c++] = 0;
-
-    FBReq[0] = LE32(c << 2);
-
-    len = c * 4;
-
-    CachePreDMA(FBReq, &len, 0);
-    mbox_send(8, (ULONG)FBReq, VC4Base);
-    mbox_recv(8, VC4Base);
-    CachePostDMA(FBReq, &len, 0);
-
-    uint32_t _base = LE32(FBReq[pos_buffer_base]);
-    uint32_t _pitch = LE32(FBReq[pos_buffer_pitch]);
-
-    if (framebuffer)
-        *framebuffer = (void*)(intptr_t)_base;
-
-    if (pitch)
-        *pitch = _pitch;
+    MB_RawCommand(FBReq);
 }
 
-int blank_screen(int blank, struct VC4Base *VC4Base)
+void SetVirtualSize(struct Size size, struct VC4Base *VC4Base)
 {
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    APTR MailboxBase = VC4Base->vc4_MailboxBase;
+    ULONG FBReq[8];
 
-    ULONG *FBReq = VC4Base->vc4_Request;
-    ULONG len = 7*4;
-
-    FBReq[0] = LE32(4*7);
+    FBReq[0] = 4 * 8;
     FBReq[1] = 0;
-    FBReq[2] = LE32(0x00040003);
-    FBReq[3] = LE32(4);
+    FBReq[2] = MB_SET_VIRTUAL_SIZE;
+    FBReq[3] = 8;
+    FBReq[4] = 0;
+    FBReq[5] = size.width;
+    FBReq[6] = size.height;
+    FBReq[7] = 0;
+
+    MB_RawCommand(FBReq);
+}
+
+void SetDepth(uint8_t depth, struct VC4Base *VC4Base)
+{
+    APTR MailboxBase = VC4Base->vc4_MailboxBase;
+    ULONG FBReq[7];
+
+    FBReq[0] = 4 * 7;
+    FBReq[1] = 0;
+    FBReq[2] = MB_SET_DEPTH;
+    FBReq[3] = 4;
+    FBReq[4] = 0;
+    FBReq[5] = depth;
+    FBReq[6] = 0;
+
+    MB_RawCommand(FBReq);
+}
+
+void AllocateBuffer(uint32_t alignment, void **base, uint32_t *size, struct VC4Base *VC4Base)
+{
+    APTR MailboxBase = VC4Base->vc4_MailboxBase;
+    ULONG FBReq[8];
+
+    FBReq[0] = 4 * 8;
+    FBReq[1] = 0;
+    FBReq[2] = MB_ALLOCATE_BUFFER;
+    FBReq[3] = 8;
+    FBReq[4] = 0;
+    FBReq[5] = alignment;           // Alignment, the base address in the answer
+    FBReq[6] = 0;                   // Size
+    FBReq[7] = 0;
+
+    MB_RawCommand(FBReq);
+
+    if (base)
+        *base = (void *)(intptr_t)FBReq[5];
+
+    if (size)
+        *size = FBReq[6];
+}
+
+uint32_t GetPitch(struct VC4Base *VC4Base)
+{
+    APTR MailboxBase = VC4Base->vc4_MailboxBase;
+    ULONG FBReq[7];
+
+    FBReq[0] = 4 * 7;
+    FBReq[1] = 0;
+    FBReq[2] = MB_GET_PITCH;
+    FBReq[3] = 4;
+    FBReq[4] = 0;
+    FBReq[5] = 0;                   // Bytes per line
+    FBReq[6] = 0;
+
+    MB_RawCommand(FBReq);
+
+    return FBReq[5];
+}
+
+void ReleaseBuffer(struct VC4Base *VC4Base)
+{
+    APTR MailboxBase = VC4Base->vc4_MailboxBase;
+    ULONG FBReq[6];
+
+    FBReq[0] = 4 * 6;
+    FBReq[1] = 0;
+    FBReq[2] = MB_RELEASE_BUFFER;
+    FBReq[3] = 0;
+    FBReq[4] = 0;
+    FBReq[5] = 0;
+
+    MB_RawCommand(FBReq);
+}
+
+int BlankScreen(int blank, struct VC4Base *VC4Base)
+{
+    APTR MailboxBase = VC4Base->vc4_MailboxBase;
+    ULONG FBReq[7];
+
+    /* This is the request the driver sent before it used mailbox.resource: the tag is
+       MB_GET_PHYSICAL_SIZE, not MB_BLANK_SCREEN */
+    FBReq[0] = 4 * 7;
+    FBReq[1] = 0;
+    FBReq[2] = MB_GET_PHYSICAL_SIZE;
+    FBReq[3] = 4;
     FBReq[4] = 0;
     FBReq[5] = blank ? 1 : 0;
     FBReq[6] = 0;
 
-    CachePreDMA(FBReq, &len, 0);
-    mbox_send(8, (ULONG)FBReq, VC4Base);
-    mbox_recv(8, VC4Base);
-    CachePostDMA(FBReq, &len, 0);
+    MB_RawCommand(FBReq);
 
-    return LE32(FBReq[5]) & 1;
+    return FBReq[5] & 1;
 }
 
-LONG get_display_id(ULONG display_num, struct VC4Base *VC4Base)
+uint32_t AllocateMemory(uint32_t size, uint32_t alignment, uint32_t flags, struct VC4Base *VC4Base)
 {
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    APTR MailboxBase = VC4Base->vc4_MailboxBase;
+    ULONG FBReq[9];
 
-    ULONG *FBReq = VC4Base->vc4_Request;
-    ULONG len = 7*4;
-
-    FBReq[0] = LE32(4*7);
+    FBReq[0] = 4 * 9;
     FBReq[1] = 0;
-    FBReq[2] = LE32(VCTAG_GET_DISPLAY_ID);
-    FBReq[3] = LE32(4);
+    FBReq[2] = MB_ALLOCATE_MEMORY;
+    FBReq[3] = 12;
     FBReq[4] = 0;
-    FBReq[5] = LE32(display_num);
+    FBReq[5] = size;
+    FBReq[6] = alignment;
+    FBReq[7] = flags;
+    FBReq[8] = 0;
+
+    MB_RawCommand(FBReq);
+
+    /* Handle of the block */
+    return FBReq[5];
+}
+
+uint32_t LockMemory(uint32_t handle, struct VC4Base *VC4Base)
+{
+    APTR MailboxBase = VC4Base->vc4_MailboxBase;
+    ULONG FBReq[7];
+
+    FBReq[0] = 4 * 7;
+    FBReq[1] = 0;
+    FBReq[2] = MB_LOCK_MEMORY;
+    FBReq[3] = 4;
+    FBReq[4] = 0;
+    FBReq[5] = handle;
     FBReq[6] = 0;
 
-    CachePreDMA(FBReq, &len, 0);
-    mbox_send(8, (ULONG)FBReq, VC4Base);
-    mbox_recv(8, VC4Base);
-    CachePostDMA(FBReq, &len, 0);
+    MB_RawCommand(FBReq);
 
-    if ((LE32(FBReq[1]) == 0x80000000) && 
-        (LE32(FBReq[4]) == 0x80000004)) {
-        return (LONG)(LE32(FBReq[5]));
-    }
-
-    return (LONG)(-1);
+    /* Address of the block, in the view of the VPU */
+    return FBReq[5];
 }
 
-BOOL set_display_power(LONG display_id, ULONG state, struct VC4Base *VC4Base)
+uint32_t ExecuteCode(uint32_t addr, uint32_t arg0, uint32_t arg1, uint32_t arg2, uint32_t arg3,
+                     uint32_t arg4, uint32_t arg5, struct VC4Base *VC4Base)
 {
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    APTR MailboxBase = VC4Base->vc4_MailboxBase;
+    ULONG FBReq[13];
 
-    ULONG *FBReq = VC4Base->vc4_Request;
-    ULONG len = 8*4;
-
-    FBReq[0] = LE32(4*8);
+    FBReq[0] = 4 * 13;
     FBReq[1] = 0;
-    FBReq[2] = LE32(VCTAG_SET_DISPLAY_POWER);
-    FBReq[3] = LE32(8);
+    FBReq[2] = MB_EXECUTE_CODE;
+    FBReq[3] = 28;
     FBReq[4] = 0;
-    FBReq[5] = LE32(display_id);
-    FBReq[6] = LE32(state);
+    FBReq[5] = addr;                // code address
+    FBReq[6] = arg0;                // r0
+    FBReq[7] = arg1;                // r1
+    FBReq[8] = arg2;                // r2
+    FBReq[9] = arg3;                // r3
+    FBReq[10] = arg4;               // r4
+    FBReq[11] = arg5;               // r5
+    FBReq[12] = 0;
+
+    MB_RawCommand(FBReq);
+
+    /* r0 when the code returned */
+    return FBReq[5];
+}
+
+uint32_t SetDomainState(uint32_t domain, uint32_t state, struct VC4Base *VC4Base)
+{
+    APTR MailboxBase = VC4Base->vc4_MailboxBase;
+    ULONG FBReq[8];
+
+    FBReq[0] = 4 * 8;
+    FBReq[1] = 0;
+    FBReq[2] = MB_SET_DOMAIN_STATE;
+    FBReq[3] = 8;
+    FBReq[4] = 0;
+    FBReq[5] = domain;
+    FBReq[6] = state;
     FBReq[7] = 0;
 
-    CachePreDMA(FBReq, &len, 0);
-    mbox_send(8, (ULONG)FBReq, VC4Base);
-    mbox_recv(8, VC4Base);
-    CachePostDMA(FBReq, &len, 0);
+    MB_RawCommand(FBReq);
 
-    return (BOOL)(
-        (LE32(FBReq[1]) == 0x80000000) && 
-        (LE32(FBReq[4]) == 0x80000004));
+    /* State of the domain */
+    return FBReq[6];
 }
 
-static void putch(UBYTE data asm("d0"), APTR ignore asm("a3"))
+/* The display id of a display number, or -1 if the firmware has no such display */
+int32_t GetDisplayID(uint32_t display_num, struct VC4Base *VC4Base)
 {
-    *(UBYTE*)0xdeadbeef = data;
-}
+    APTR MailboxBase = VC4Base->vc4_MailboxBase;
+    ULONG FBReq[7];
 
-void release_framebuffer(struct VC4Base *VC4Base)
-{
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
-    ULONG *FBReq = VC4Base->vc4_Request;
-    ULONG len = 6 * 4;
-
-    /* Release framebuffer */
-    FBReq[0] = LE32(4*6);
+    FBReq[0] = 4 * 7;
     FBReq[1] = 0;
-    FBReq[2] = LE32(0x00048001);
-    FBReq[3] = LE32(0);
+    FBReq[2] = MB_FB_GET_DISPLAY_ID;
+    FBReq[3] = 4;
     FBReq[4] = 0;
-    FBReq[5] = 0;
+    FBReq[5] = display_num;
+    FBReq[6] = 0;
 
-    CachePreDMA(FBReq, &len, 0);
-    mbox_send(8, (ULONG)FBReq, VC4Base);
-    mbox_recv(8, VC4Base);
-    CachePostDMA(FBReq, &len, 0);
+    MB_RawCommand(FBReq);
+
+    /* Request done, and the tag answered with 4 bytes of data */
+    if (FBReq[1] == MB_SUCCESS && FBReq[4] == 0x80000004)
+        return (int32_t)FBReq[5];
+
+    return -1;
 }
 
-uint32_t upload_code(const void * code, uint32_t code_size, struct VC4Base *VC4Base)
+/* Returns non zero if the firmware accepted the request */
+int SetDisplayPower(int32_t display_id, uint32_t state, struct VC4Base *VC4Base)
+{
+    APTR MailboxBase = VC4Base->vc4_MailboxBase;
+    ULONG FBReq[8];
+
+    FBReq[0] = 4 * 8;
+    FBReq[1] = 0;
+    FBReq[2] = MB_FB_SET_DISPLAY_POWER;
+    FBReq[3] = 8;
+    FBReq[4] = 0;
+    FBReq[5] = display_id;
+    FBReq[6] = state;
+    FBReq[7] = 0;
+
+    MB_RawCommand(FBReq);
+
+    return FBReq[1] == MB_SUCCESS && FBReq[4] == 0x80000004;
+}
+
+void init_display(struct Size dimensions, uint8_t depth, void **framebuffer, uint32_t *pitch, struct VC4Base *VC4Base)
+{
+    SetPhysicalSize(dimensions, VC4Base);
+    SetVirtualSize(dimensions, VC4Base);        // Virtual resolution: duplicate physical size...
+    SetDepth(depth, VC4Base);
+
+    AllocateBuffer(64, framebuffer, NULL, VC4Base);
+
+    if (pitch)
+        *pitch = GetPitch(VC4Base);
+}
+
+uint32_t upload_code(const void *code, uint32_t code_size, struct VC4Base *VC4Base)
 {
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
-    ULONG *FBReq = VC4Base->vc4_Request;
     ULONG handle;
     ULONG phys_addr;
     UBYTE *ptr;
-    ULONG len = 9 * 4;
 
-    /* Allocate buffer for the code on VC4 */
-    FBReq[0] = LE32(4*9);
-    FBReq[1] = 0;
-    FBReq[2] = LE32(0x3000c);
-    FBReq[3] = LE32(12);
-    FBReq[4] = 0;
-    FBReq[5] = LE32(code_size);
-    FBReq[6] = LE32(4);   // 4 byte align
-    FBReq[7] = LE32((3 << 2) | (1 << 6));   // COHERENT | DIRECT | HINT_PERMALOCK
-    FBReq[8] = 0;
+    /* Allocate buffer for the code on VC4, 4 byte aligned */
+    handle = AllocateMemory(code_size, 4, MEM_FLAG_COHERENT | MEM_FLAG_DIRECT | MEM_FLAG_HINT_PERMALOCK, VC4Base);
 
-    CachePreDMA(FBReq, &len, 0);
-    mbox_send(8, (ULONG)FBReq, VC4Base);
-    mbox_recv(8, VC4Base);
-    CachePostDMA(FBReq, &len, 0);
-
-    handle = LE32(FBReq[5]);
-
-    /* Lock the block so that it remains alive all the time */
-    FBReq[0] = LE32(4*7);
-    FBReq[1] = 0;
-    FBReq[2] = LE32(0x0003000d);
-    FBReq[3] = LE32(4);
-    FBReq[4] = 0;
-    FBReq[5] = LE32(handle);  // 32 bytes
-    FBReq[6] = 0;
-
-    len = 7 * 4;
-
-    CachePreDMA(FBReq, &len, 0);
-    mbox_send(8, (ULONG)FBReq, VC4Base);
-    mbox_recv(8, VC4Base);
-    CachePostDMA(FBReq, &len, 0);
-
-    /* Get physical address. This is in VPU's view! */
-    phys_addr = LE32(FBReq[5]);
+    /* Lock the block so that it remains alive all the time. This is the address in VPU's view! */
+    phys_addr = LockMemory(handle, VC4Base);
 
     /* Convert address to CPU view, upload code there */
     ptr = (UBYTE *)(phys_addr & 0x3fffffff);
@@ -396,28 +360,4 @@ uint32_t upload_code(const void * code, uint32_t code_size, struct VC4Base *VC4B
 
     /* Return back physical address */
     return phys_addr;
-}
-
-ULONG enable_unicam_domain(struct VC4Base *VC4Base)
-{
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
-    ULONG *FBReq = VC4Base->vc4_Request;
-
-    ULONG len = 8 * 4;
-
-    FBReq[0] = LE32(4 * 8);      // Length
-    FBReq[1] = 0;                // Request
-    FBReq[2] = LE32(0x00038030); // SetClockRate
-    FBReq[3] = LE32(8);
-    FBReq[4] = 0;
-    FBReq[5] = LE32(14); // unicam1
-    FBReq[6] = LE32(1);
-    FBReq[7] = 0;
-
-    CachePreDMA(FBReq, &len, 0);
-    mbox_send(8, (ULONG)FBReq,VC4Base);
-    mbox_recv(8, VC4Base);
-    CachePostDMA(FBReq, &len, 0);
-
-    return LE32(FBReq[6]);
 }
