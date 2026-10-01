@@ -69,7 +69,10 @@ enum palette_type {
 #define SCALER_DISPSTAT0                        0x00000048
 #define SCALER_DISPSTAT1                        0x00000058
 #define SCALER_DISPSTAT2                        0x00000068
-#define SCALER_DISPSTATX_FRAME_COUNT_MASK       VC4_MASK(17, 12)
+/* The bits from low to high of a register, both included */
+#define HVS_MASK(high, low)                     ((0xffffffffUL >> (31 - (high))) & ~((1UL << (low)) - 1))
+
+#define SCALER_DISPSTATX_FRAME_COUNT_MASK       HVS_MASK(17, 12)
 #define SCALER_DISPSTATX_FRAME_COUNT_SHIFT      12
 
 struct VideoCoreBase;
