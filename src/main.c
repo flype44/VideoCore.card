@@ -271,6 +271,19 @@ static void vc_Task()
     DeleteMsgPort(port);
 }
 
+/* The values of the ToolType VC4_SWITCH_METHOD */
+static const struct {
+    const char *name;
+    enum SwitchMode mode;
+} switch_methods[] = {
+    { "CTS",  CTS  },
+    { "DTR",  DTR  },
+    { "RTS",  RTS  },
+    { "SEL",  SEL  },
+    { "CSI",  CSI  },
+    { "NONE", None },
+};
+
 static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **ToolTypes, "a1"), REGARG(struct VideoCoreBase *VideoCoreBase, "a6"))
 {
     struct ExecBase *SysBase = VideoCoreBase->vc_SysBase;
@@ -466,29 +479,16 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
                 do and will not attempt to perform any switching
             */
             const char *m = &tt[18];
-            if (m[0] == 'C' && m[1] == 'T' && m[2] == 'S' && m[3] == 0)
+            int i;
+
+            /* _strcmp() compares the null character as well: "CTSX" is not "CTS" */
+            for (i = 0; i < sizeof(switch_methods) / sizeof(switch_methods[0]); i++)
             {
-                VideoCoreBase->vc_SwitchMode = CTS;
-            }
-            else if (m[0] == 'D' && m[1] == 'T' && m[2] == 'R' && m[3] == 0)
-            {
-                VideoCoreBase->vc_SwitchMode = DTR;
-            }
-            else if (m[0] == 'R' && m[1] == 'T' && m[2] == 'S' && m[3] == 0)
-            {
-                VideoCoreBase->vc_SwitchMode = RTS;
-            }
-            else if (m[0] == 'S' && m[1] == 'E' && m[2] == 'L' && m[3] == 0)
-            {
-                VideoCoreBase->vc_SwitchMode = SEL;
-            }
-            else if (m[0] == 'C' && m[1] == 'S' && m[2] == 'I' && m[3] == 0)
-            {
-                VideoCoreBase->vc_SwitchMode = CSI;
-            }
-            else if (m[0] == 'N' && m[1] == 'O' && m[3] == 'N' && m[4] == 'E' && m[5] == 0)
-            {
-                VideoCoreBase->vc_SwitchMode = None;
+                if (_strcmp(m, switch_methods[i].name) == 0)
+                {
+                    VideoCoreBase->vc_SwitchMode = switch_methods[i].mode;
+                    break;
+                }
             }
         }
         else if (_strcmp(tt, "VC4_SWITCH_INVERT") == '=')
