@@ -198,12 +198,12 @@ static void VC4_SetSprite(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable,
         LONG _y;
 
         if (VideoCoreBase->vc_ScaleX)
-            _x = 0x10000 * VideoCoreBase->vc_MouseX / VideoCoreBase->vc_ScaleX;
+            _x = 0x10000 * VideoCoreBase->vc_MouseX / (LONG)VideoCoreBase->vc_ScaleX;
         else
             _x = VideoCoreBase->vc_MouseX;
 
         if (VideoCoreBase->vc_ScaleY)
-            _y = 0x10000 * VideoCoreBase->vc_MouseY / VideoCoreBase->vc_ScaleX;
+            _y = 0x10000 * VideoCoreBase->vc_MouseY / (LONG)VideoCoreBase->vc_ScaleX;
         else
             _y = VideoCoreBase->vc_MouseY;
 
@@ -239,12 +239,12 @@ static void VC4_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD
     LONG _y;
 
     if (VideoCoreBase->vc_ScaleX)
-        _x = 0x10000 * x / VideoCoreBase->vc_ScaleX;
+        _x = 0x10000 * x / (LONG)VideoCoreBase->vc_ScaleX;
     else
         _x = x;
 
     if (VideoCoreBase->vc_ScaleY)
-        _y = 0x10000 * y / VideoCoreBase->vc_ScaleY;
+        _y = 0x10000 * y / (LONG)VideoCoreBase->vc_ScaleY;
     else
         _y = y;
 

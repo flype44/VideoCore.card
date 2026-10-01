@@ -581,8 +581,8 @@ static void Chip_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *add
             pos = BUDDY_OFFSET(plane);
             int cnt = family->WritePlane(b, &pan, pos);
 
-            pan.SpriteX = offset_x + 0x10000 * (VideoCoreBase->vc_MouseX - x_offset) / VideoCoreBase->vc_ScaleX;
-            pan.SpriteY = offset_y + 0x10000 * (VideoCoreBase->vc_MouseY - y_offset) / VideoCoreBase->vc_ScaleY;
+            pan.SpriteX = offset_x + 0x10000 * (VideoCoreBase->vc_MouseX - x_offset) / (LONG)VideoCoreBase->vc_ScaleX;
+            pan.SpriteY = offset_y + 0x10000 * (VideoCoreBase->vc_MouseY - y_offset) / (LONG)VideoCoreBase->vc_ScaleY;
             pan.SpriteKernel = pan.Kernel;
             cnt = family->WriteSprite(b, &pan, cnt);
         }
