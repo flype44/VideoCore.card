@@ -46,6 +46,7 @@ struct VC4Base {
     APTR                    vc4_MailboxBase;
     APTR                    vc4_HVS;
     APTR                    vc4_DisplayList;    // HVS display list memory, set by the InitChip of the family
+    void                  (*vc4_ConstructUnicamDL)(struct VC4Base *);  // display list of Unicam for an old unicam.resource, set by InitChip
     APTR                    vc4_BuddyAllocator;
     APTR                    vc4_MemBase;
     uint32_t                vc4_MemSize;

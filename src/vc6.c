@@ -860,7 +860,7 @@ void VC6_WaitVerticalSync(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL toggle,
 }
 
 /* Unicam DisplayList */
-void VC6_ConstructUnicamDL(struct VC4Base *VC4Base)
+static void VC6_ConstructUnicamDL(struct VC4Base *VC4Base)
 {
     APTR UnicamBase = VC4Base->vc4_UnicamBase;
     int unity = 0;
@@ -1073,6 +1073,7 @@ void VC6_InitChip(struct BoardInfo *bi)
     struct VC4Base *VC4Base = (struct VC4Base *)bi->CardBase;
 
     VC4Base->vc4_DisplayList = (APTR)0xf2404000;
+    VC4Base->vc4_ConstructUnicamDL = VC6_ConstructUnicamDL;
 
 // Basic P96 functions needed for "dumb frame buffer" operation
     bi->SetSwitch = (void *)VC6_SetSwitch;

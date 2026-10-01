@@ -741,14 +741,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         }
         else
         {
-            if (VC4Base->vc4_VideoCore6)
-            {
-                VC6_ConstructUnicamDL(VC4Base);
-            }
-            else
-            {
-                VC4_ConstructUnicamDL(VC4Base);
-            }
+            VC4Base->vc4_ConstructUnicamDL(VC4Base);
         }
     }
 

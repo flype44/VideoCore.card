@@ -78,8 +78,6 @@ ULONG GetVBeamPos(struct BoardInfo *b asm("a0"));
 int compute_nearest_neighbour_kernel(volatile uint32_t *dlist_memory, ULONG offset);
 int compute_scaling_kernel(volatile uint32_t *dlist_memory, ULONG offset, ULONG b, ULONG c);
 
-void VC4_ConstructUnicamDL(struct VC4Base *VC4Base);
-
 void VC4_InitChip(struct BoardInfo *bi);
 
 #endif /* _VC4_H */
