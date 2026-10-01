@@ -23,6 +23,7 @@ add_executable(VideoCore.card
     src/buddyalloc.c
     src/hvs.c
     src/dpms.c
+    src/task.c
 )
 
 target_include_directories(VideoCore.card PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
