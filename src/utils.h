@@ -21,12 +21,7 @@ enum {
 /* Small C library functions, the driver is built without libc */
 int _strlen(CONST_STRPTR str);
 int _strcmp(const char *s1, const char *s2);
-int _stricmp(const char *s1, const char *s2);
 ULONG _atoul(CONST_STRPTR str);
-
-/* ToolTypes, which AmigaOS does not tell apart by the case */
-CONST_STRPTR MatchToolType(CONST_STRPTR tooltype, CONST_STRPTR name);
-BOOL YesOrTrue(CONST_STRPTR value);
 
 /* The utility.library to use is the one of the BoardInfo, rtg.library gives it to the card */
 struct Task * NewCreateTaskTags(struct TagItem *tags, struct Library *UtilityBase);

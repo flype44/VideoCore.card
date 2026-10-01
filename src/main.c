@@ -16,6 +16,7 @@
 #include <proto/input.h>
 #include <proto/devicetree.h>
 #include <proto/unicam.h>
+#include <proto/icon.h>
 
 #include <stdint.h>
 #include <common/compiler.h>
@@ -182,6 +183,12 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreB
 #include "dpms.h"
 #include "task.h"
 
+/* The value of a ToolType which switches something on: YES, TRUE or 1 */
+static BOOL ToolTypeIsOn(struct Library *IconBase, CONST_STRPTR value)
+{
+    return MatchToolValue(value, "YES") || MatchToolValue(value, "TRUE") || MatchToolValue(value, "1");
+}
+
 /* The values of the ToolType VC4_SWITCH_METHOD */
 static const struct {
     const char *name;
@@ -290,34 +297,35 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     /* If Unicam was activated on boot, pre-select CSI switch mode */
     if (UnicamBase != NULL && (UnicamGetConfig() & UNICAMF_BOOT) != 0) VideoCoreBase->vc_SwitchMode = CSI;
 
-    for (;ToolTypes[0] != NULL; ToolTypes++)
+    /* The ToolTypes are read with the calls of icon.library, which do not tell upper and lower case apart. rtg.library
+       has read the icon with them to give us the array, so the library is there. */
+    struct Library *IconBase = OpenLibrary("icon.library", 0);
+
+    if (IconBase != NULL && ToolTypes != NULL)
     {
-        const char *tt = ToolTypes[0];
         CONST_STRPTR value;
 
-        bug("[VC] Checking ToolType `%s`\n", tt);
-
-        if ((value = MatchToolType(tt, "VC4_LEGACY_ID")) != NULL && (*value == 0 || YesOrTrue(value)))
+        if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC4_LEGACY_ID")) != NULL && (*value == 0 || ToolTypeIsOn(IconBase, value)))
         {
             bi->BoardType = BT_uaegfx;
             bi->PaletteChipType = PCT_S3ViRGE;
             bi->GraphicsControllerType = GCT_S3ViRGE;
         }
-        else if ((value = MatchToolType(tt, "VC4_PHASE")) != NULL)
+        if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC4_PHASE")) != NULL)
         {
             ULONG num = _atoul(value);
 
             VideoCoreBase->vc_Phase = num;
             bug("[VC] Setting VC4 phase to %ld\n", num);
         }
-        else if ((value = MatchToolType(tt, "VC4_VERT")) != NULL)
+        if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC4_VERT")) != NULL)
         {
             ULONG num = _atoul(value);
 
             VideoCoreBase->vc_VertFreq = num;
             bug("[VC] Setting vertical frequency to %ld\n", num);
         }
-        else if ((value = MatchToolType(tt, "VC4_SCALER")) != NULL)
+        if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC4_SCALER")) != NULL)
         {
             switch(value[0]) {
                 case '0':
@@ -336,7 +344,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
             bug("[VC] Setting VC4 scaler to %lx\n", VideoCoreBase->vc_Scaler);
         }
-        else if ((value = MatchToolType(tt, "VC4_KERNEL")) != NULL)
+        if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC4_KERNEL")) != NULL)
         {
             ULONG num = _atoul(value);
 
@@ -345,7 +353,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
             else
                 VideoCoreBase->vc_UseKernel = 1;
         }
-        else if ((value = MatchToolType(tt, "VC4_KERNEL_B")) != NULL)
+        if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC4_KERNEL_B")) != NULL)
         {
             ULONG num = _atoul(value);
 
@@ -356,7 +364,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
             bug("[VC] Mitchel-Netravali B %ld\n", num);
         }
-        else if ((value = MatchToolType(tt, "VC4_SPRITE_OPACITY")) != NULL)
+        if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC4_SPRITE_OPACITY")) != NULL)
         {
             ULONG num = _atoul(value);
 
@@ -365,7 +373,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
             VideoCoreBase->vc_SpriteAlpha = num;
             bug("[VC] Sprite opacity set to %ld\n", num);
         }
-        else if ((value = MatchToolType(tt, "VC4_KERNEL_C")) != NULL)
+        if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC4_KERNEL_C")) != NULL)
         {
             ULONG num = _atoul(value);
 
@@ -376,7 +384,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
             bug("[VC] Mitchel-Netravali C %ld\n", num);
         }
-        else if ((value = MatchToolType(tt, "VC4_SWITCH_METHOD")) != NULL)
+        if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC4_SWITCH_METHOD")) != NULL)
         {
             /*
                 Find out method for switching between HDMI and RGB signals. Currently following
@@ -390,35 +398,38 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
             */
             int i;
 
-            /* _stricmp() compares the null character as well: "CTSX" is not "CTS" */
+            /* MatchToolValue() does not tell the case apart and takes a list like DTR|RTS */
             for (i = 0; i < sizeof(switch_methods) / sizeof(switch_methods[0]); i++)
             {
-                if (_stricmp(value, switch_methods[i].name) == 0)
+                if (MatchToolValue(value, switch_methods[i].name))
                 {
                     VideoCoreBase->vc_SwitchMode = switch_methods[i].mode;
                     break;
                 }
             }
         }
-        else if ((value = MatchToolType(tt, "VC4_SWITCH_INVERT")) != NULL)
+        if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC4_SWITCH_INVERT")) != NULL)
         {
             /* Invert the default behavior for selected RGB/HDMI switch mode */
-            if (YesOrTrue(value))
+            if (ToolTypeIsOn(IconBase, value))
                 VideoCoreBase->vc_SwitchInverted = 1;
         }
-        else if ((value = MatchToolType(tt, "VC4_INTEGER_SCALING")) != NULL)
+        if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC4_INTEGER_SCALING")) != NULL)
         {
             /* Scale by integer factors only */
-            if (YesOrTrue(value))
+            if (ToolTypeIsOn(IconBase, value))
                 VideoCoreBase->vc_IntegerScaler = 1;
         }
-        else if ((value = MatchToolType(tt, "VC4_DPMS")) != NULL && (*value == 0 || YesOrTrue(value)))
+        if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC4_DPMS")) != NULL && (*value == 0 || ToolTypeIsOn(IconBase, value)))
         {
             /* Expose DPMS support to Picasso96, 
              * using the mailbox display power tag */
             VideoCoreBase->vc_UseDPMS = TRUE;
         }
     }
+
+    if (IconBase != NULL)
+        CloseLibrary(IconBase);
 
     /* The display power control of the firmware, for Picasso96 DPMS */
     DPMS_Init(bi, VideoCoreBase);

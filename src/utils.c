@@ -23,56 +23,6 @@ int _strcmp(const char *s1, const char *s2)
     return (*(const unsigned char *)s1 - *(const unsigned char *)(s2 - 1));
 }
 
-/* The ASCII letters in lower case, the names and values of the ToolTypes are plain ASCII */
-static int _tolower(int c)
-{
-    return (c >= 'A' && c <= 'Z') ? c + ('a' - 'A') : c;
-}
-
-/* Like _strcmp(), without caring about the case */
-int _stricmp(const char *s1, const char *s2)
-{
-    while (_tolower((unsigned char)*s1) == _tolower((unsigned char)*s2++))
-        if (*s1++ == '\0')
-            return 0;
-
-    return _tolower((unsigned char)*s1) - _tolower((unsigned char)*(s2 - 1));
-}
-
-/* If the ToolType is "name" or "name=value" returns the value, which is empty when there is none, otherwise
-   NULL. The name is compared without caring about the case and blanks are allowed around the '=', that is
-   how FindToolType() of icon.library works. */
-CONST_STRPTR MatchToolType(CONST_STRPTR tooltype, CONST_STRPTR name)
-{
-    while (*name)
-        if (_tolower((unsigned char)*tooltype++) != _tolower((unsigned char)*name++))
-            return NULL;
-
-    while (*tooltype == ' ' || *tooltype == '\t')
-        tooltype++;
-
-    if (*tooltype == '=')
-    {
-        tooltype++;
-
-        while (*tooltype == ' ' || *tooltype == '\t')
-            tooltype++;
-
-        return tooltype;
-    }
-
-    if (*tooltype == '\0')
-        return tooltype;
-
-    return NULL;
-}
-
-/* The value of a ToolType which switches something on: YES, TRUE or 1, whatever the case */
-BOOL YesOrTrue(CONST_STRPTR value)
-{
-    return _stricmp(value, "YES") == 0 || _stricmp(value, "TRUE") == 0 || _stricmp(value, "1") == 0;
-}
-
 /* The decimal number at the start of the string, the digits end at the first other character */
 ULONG _atoul(CONST_STRPTR str)
 {
