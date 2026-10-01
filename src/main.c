@@ -321,32 +321,33 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     for (;ToolTypes[0] != NULL; ToolTypes++)
     {
         const char *tt = ToolTypes[0];
+        CONST_STRPTR value;
 
         bug("[VC] Checking ToolType `%s`\n", tt);
 
-        if (_strcmp(tt, "VC4_LEGACY_ID") == 0)
+        if ((value = MatchToolType(tt, "VC4_LEGACY_ID")) != NULL && (*value == 0 || YesOrTrue(value)))
         {
             bi->BoardType = BT_uaegfx;
             bi->PaletteChipType = PCT_S3ViRGE;
             bi->GraphicsControllerType = GCT_S3ViRGE;
         }
-        else if (_strcmp(tt, "VC4_PHASE") == '=')
+        else if ((value = MatchToolType(tt, "VC4_PHASE")) != NULL)
         {
-            ULONG num = _atoul(&tt[10]);
+            ULONG num = _atoul(value);
 
             VideoCoreBase->vc_Phase = num;
             bug("[VC] Setting VC4 phase to %ld\n", num);
         }
-        else if (_strcmp(tt, "VC4_VERT") == '=')
+        else if ((value = MatchToolType(tt, "VC4_VERT")) != NULL)
         {
-            ULONG num = _atoul(&tt[10]);
+            ULONG num = _atoul(value);
 
             VideoCoreBase->vc_VertFreq = num;
             bug("[VC] Setting vertical frequency to %ld\n", num);
         }
-        else if (_strcmp(tt, "VC4_SCALER") == '=')
+        else if ((value = MatchToolType(tt, "VC4_SCALER")) != NULL)
         {
-            switch(tt[11]) {
+            switch(value[0]) {
                 case '0':
                     VideoCoreBase->vc_Scaler = 0x00000000;
                     break;
@@ -363,18 +364,18 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
             bug("[VC] Setting VC4 scaler to %lx\n", VideoCoreBase->vc_Scaler);
         }
-        else if (_strcmp(tt, "VC4_KERNEL") == '=')
+        else if ((value = MatchToolType(tt, "VC4_KERNEL")) != NULL)
         {
-            ULONG num = _atoul(&tt[11]);
+            ULONG num = _atoul(value);
 
             if (num == 0)
                 VideoCoreBase->vc_UseKernel = 0;
             else
                 VideoCoreBase->vc_UseKernel = 1;
         }
-        else if (_strcmp(tt, "VC4_KERNEL_B") == '=')
+        else if ((value = MatchToolType(tt, "VC4_KERNEL_B")) != NULL)
         {
-            ULONG num = _atoul(&tt[13]);
+            ULONG num = _atoul(value);
 
             VideoCoreBase->vc_Kernel_B = IEEESPDiv(
                 IEEESPFlt(num),
@@ -383,18 +384,18 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
             bug("[VC] Mitchel-Netravali B %ld\n", num);
         }
-        else if (_strcmp(tt, "VC4_SPRITE_OPACITY") == '=')
+        else if ((value = MatchToolType(tt, "VC4_SPRITE_OPACITY")) != NULL)
         {
-            ULONG num = _atoul(&tt[19]);
+            ULONG num = _atoul(value);
 
             if (num > 255) num=255;
 
             VideoCoreBase->vc_SpriteAlpha = num;
             bug("[VC] Sprite opacity set to %ld\n", num);
         }
-        else if (_strcmp(tt, "VC4_KERNEL_C") == '=')
+        else if ((value = MatchToolType(tt, "VC4_KERNEL_C")) != NULL)
         {
-            ULONG num = _atoul(&tt[13]);
+            ULONG num = _atoul(value);
 
             VideoCoreBase->vc_Kernel_C = IEEESPDiv(
                 IEEESPFlt(num),
@@ -403,7 +404,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
             bug("[VC] Mitchel-Netravali C %ld\n", num);
         }
-        else if (_strcmp(tt, "VC4_SWITCH_METHOD") == '=')
+        else if ((value = MatchToolType(tt, "VC4_SWITCH_METHOD")) != NULL)
         {
             /*
                 Find out method for switching between HDMI and RGB signals. Currently following
@@ -415,32 +416,31 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
                 When no VC4_SWITCH_METHOD is selected, the driver will let user decide what to
                 do and will not attempt to perform any switching
             */
-            const char *m = &tt[18];
             int i;
 
-            /* _strcmp() compares the null character as well: "CTSX" is not "CTS" */
+            /* _stricmp() compares the null character as well: "CTSX" is not "CTS" */
             for (i = 0; i < sizeof(switch_methods) / sizeof(switch_methods[0]); i++)
             {
-                if (_strcmp(m, switch_methods[i].name) == 0)
+                if (_stricmp(value, switch_methods[i].name) == 0)
                 {
                     VideoCoreBase->vc_SwitchMode = switch_methods[i].mode;
                     break;
                 }
             }
         }
-        else if (_strcmp(tt, "VC4_SWITCH_INVERT") == '=')
+        else if ((value = MatchToolType(tt, "VC4_SWITCH_INVERT")) != NULL)
         {
             /* Invert the default behavior for selected RGB/HDMI switch mode */
-            if (YesOrTrue(&tt[18]))
+            if (YesOrTrue(value))
                 VideoCoreBase->vc_SwitchInverted = 1;
         }
-        else if (_strcmp(tt, "VC4_INTEGER_SCALING") == '=')
+        else if ((value = MatchToolType(tt, "VC4_INTEGER_SCALING")) != NULL)
         {
             /* Scale by integer factors only */
-            if (YesOrTrue(&tt[20]))
+            if (YesOrTrue(value))
                 VideoCoreBase->vc_IntegerScaler = 1;
         }
-        else if (_strcmp(tt, "VC4_DPMS") == 0)
+        else if ((value = MatchToolType(tt, "VC4_DPMS")) != NULL && (*value == 0 || YesOrTrue(value)))
         {
             /* Expose DPMS support to Picasso96, 
              * using the mailbox display power tag */
