@@ -236,11 +236,8 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
     bi->MemoryClock = CLOCK_HZ;
 
-    /* The chip fills the functions of the BoardInfo */
-    if (VideoCoreBase->vc_VideoCore6)
-        VC6_InitChip(bi);
-    else
-        VC4_InitChip(bi);
+    /* The functions of the BoardInfo: the ones of both families, and those of the family of this board */
+    Chip_Init(bi, VideoCoreBase->vc_VideoCore6 ? &VC6_Family : &VC4_Family);
 
     
     bug("[VC] Measuring refresh rate\n");

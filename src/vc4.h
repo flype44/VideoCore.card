@@ -44,6 +44,7 @@
 #define VC4_SCALER_POS2_WIDTH_MASK                  0x00000fff
 #define VC4_SCALER_POS2_WIDTH_SHIFT                 0
 
-void VC4_InitChip(struct BoardInfo *bi);
+/* In chip.h: struct ChipFamily */
+extern const struct ChipFamily VC4_Family;
 
 #endif /* _VC4_H */

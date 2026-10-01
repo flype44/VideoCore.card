@@ -46,6 +46,7 @@
 #define VC6_SCALER_POS2_WIDTH_MASK                  0x00003fff
 #define VC6_SCALER_POS2_WIDTH_SHIFT                 0
 
-void VC6_InitChip(struct BoardInfo *bi);
+/* In chip.h: struct ChipFamily */
+extern const struct ChipFamily VC6_Family;
 
 #endif /* _VC6_H */

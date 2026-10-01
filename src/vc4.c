@@ -151,7 +151,7 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
                 calc_width, calc_height, offset_x, offset_y);
     }
 
-    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_DisplayList;
+    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_Family->DisplayList;
    
     if (unity) {
         if (offset_only) {
@@ -492,7 +492,7 @@ static void VC4_ConstructUnicamDL(struct VideoCoreBase *VideoCoreBase)
 
     ULONG cnt = 0x300; // Initial pointer to UnicamDL
 
-    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_DisplayList;
+    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_Family->DisplayList;
 
     if (crop_w == VideoCoreBase->vc_DispSize.width &&
         crop_h == VideoCoreBase->vc_DispSize.height && aspect == 1000)
@@ -656,17 +656,12 @@ static void VC4_ConstructUnicamDL(struct VideoCoreBase *VideoCoreBase)
 }
 
 /* Fills the BoardInfo with the functions of VideoCore 4 */
-void VC4_InitChip(struct BoardInfo *bi)
-{
-    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)bi->CardBase;
-
-    VideoCoreBase->vc_DisplayList = (APTR)VC4_DISPLAY_LIST;
-    VideoCoreBase->vc_ConstructUnicamDL = VC4_ConstructUnicamDL;
-
-    /* What both families do the same way, then what writes the display lists of this one */
-    Chip_Init(bi);
-
-    bi->SetPanning = (void *)VC4_SetPanning;
-    bi->SetSprite = (void *)VC4_SetSprite;
-    bi->SetSpritePosition = (void *)VC4_SetSpritePosition;
-}
+/* What makes VC4 itself */
+const struct ChipFamily VC4_Family = {
+    "VC4",
+    (APTR)VC4_DISPLAY_LIST,
+    VC4_ConstructUnicamDL,
+    VC4_SetPanning,
+    VC4_SetSprite,
+    VC4_SetSpritePosition
+};

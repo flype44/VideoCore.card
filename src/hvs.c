@@ -20,6 +20,7 @@
 #include "videocore.h"
 #include "buddyalloc.h"
 #include "hvs.h"
+#include "chip.h"
 
 static int mitchell_netravali(ULONG x, ULONG b, ULONG c, struct Library *MathIeeeSingBasBase)
 {
@@ -232,9 +233,9 @@ void HVS_SetKernel(struct VideoCoreBase *VideoCoreBase, ULONG kernel, ULONG b, U
     ULONG kernel_start = BUDDY_OFFSET(new_scaling_kernel);
 
     if (kernel)
-        compute_scaling_kernel(VideoCoreBase->vc_DisplayList, kernel_start, b, c);
+        compute_scaling_kernel(VideoCoreBase->vc_Family->DisplayList, kernel_start, b, c);
     else
-        compute_nearest_neighbour_kernel(VideoCoreBase->vc_DisplayList, kernel_start);
+        compute_nearest_neighbour_kernel(VideoCoreBase->vc_Family->DisplayList, kernel_start);
 
     if (VideoCoreBase->vc_Kernel)
     {
@@ -334,7 +335,7 @@ void HVS_UpdateUnicamDL(struct VideoCoreBase *VideoCoreBase)
         ULONG idx = BuddyAlloc(VideoCoreBase, sz);
 
         /* Alloc slot for unicam displaylist and initialize it by unicam itself */
-        UnicamConstructDL(VideoCoreBase->vc_DisplayList, BUDDY_OFFSET(idx));
+        UnicamConstructDL(VideoCoreBase->vc_Family->DisplayList, BUDDY_OFFSET(idx));
 
         if (VideoCoreBase->vc_UnicamVisible) {
             wr32le((volatile uint32_t *)(HVS_BASE + SCALER_DISPLIST1), BUDDY_OFFSET(idx));
@@ -355,14 +356,14 @@ void HVS_Init(struct VideoCoreBase *VideoCoreBase)
     ULONG kernel_start = BUDDY_OFFSET(VideoCoreBase->vc_ScalingKernel);
 
     if (VideoCoreBase->vc_UseKernel)
-        compute_scaling_kernel(VideoCoreBase->vc_DisplayList, kernel_start, VideoCoreBase->vc_Kernel_B, VideoCoreBase->vc_Kernel_C);
+        compute_scaling_kernel(VideoCoreBase->vc_Family->DisplayList, kernel_start, VideoCoreBase->vc_Kernel_B, VideoCoreBase->vc_Kernel_C);
     else
-        compute_nearest_neighbour_kernel(VideoCoreBase->vc_DisplayList, kernel_start);
+        compute_nearest_neighbour_kernel(VideoCoreBase->vc_Family->DisplayList, kernel_start);
 
     VideoCoreBase->vc_UnityKernel = BuddyAlloc(VideoCoreBase, 11);
     ULONG unity_kernel = BUDDY_OFFSET(VideoCoreBase->vc_UnityKernel);
 
-    compute_nearest_neighbour_kernel(VideoCoreBase->vc_DisplayList, unity_kernel);
+    compute_nearest_neighbour_kernel(VideoCoreBase->vc_Family->DisplayList, unity_kernel);
 
     /* If unicam.resource is new enough, let it construct unicam display list */
     struct Library *ub = (struct Library *)UnicamBase;
@@ -377,11 +378,11 @@ void HVS_Init(struct VideoCoreBase *VideoCoreBase)
             VideoCoreBase->vc_UnicamDL = BuddyAlloc(VideoCoreBase, sz);
             idx = BUDDY_OFFSET(VideoCoreBase->vc_UnicamDL);
 
-            UnicamConstructDL(VideoCoreBase->vc_DisplayList, idx);
+            UnicamConstructDL(VideoCoreBase->vc_Family->DisplayList, idx);
         }
         else
         {
-            VideoCoreBase->vc_ConstructUnicamDL(VideoCoreBase);
+            VideoCoreBase->vc_Family->ConstructUnicamDL(VideoCoreBase);
         }
     }
 }

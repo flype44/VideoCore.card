@@ -1,7 +1,7 @@
 /*
     What the two families of the VideoCore, VC4 and VC6, do the same way: the functions of the BoardInfo
     which are not about the display list words of a family. Chip_Init() gives them to the BoardInfo, the
-    InitChip of the family then sets its own ones.
+    descriptor of the family then gives its own ones.
 */
 
 #include <exec/types.h>
@@ -282,7 +282,7 @@ static UWORD Chip_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enab
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
     struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
-    volatile ULONG *displist = (ULONG *)VideoCoreBase->vc_DisplayList;
+    volatile ULONG *displist = (ULONG *)VideoCoreBase->vc_Family->DisplayList;
 
     if (0)
     {
@@ -358,7 +358,7 @@ static void Chip_SetColorArray(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD s
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
     struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
-    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_DisplayList;
+    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_Family->DisplayList;
 
     // Sets the color components of X color components for 8-bit paletted display modes.
     if (!b->CLUT)
@@ -417,9 +417,13 @@ void Chip_SetDPMSLevel(REGARG(struct BoardInfo *b, "a0"), REGARG(ULONG level, "d
     }
 }
 
-/* Gives the BoardInfo the functions both families share */
-void Chip_Init(struct BoardInfo *bi)
+/* Gives the BoardInfo the functions both families share and then those of the family */
+void Chip_Init(struct BoardInfo *bi, const struct ChipFamily *family)
 {
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)bi->CardBase;
+
+    VideoCoreBase->vc_Family = family;
+
     // Basic P96 functions needed for "dumb frame buffer" operation
     bi->SetSwitch = (void *)Chip_SetSwitch;
     bi->SetColorArray = (void *)Chip_SetColorArray;
@@ -480,4 +484,9 @@ void Chip_Init(struct BoardInfo *bi)
     //bi->CreateFeature = (void *)NULL;
     //bi->SetFeatureAttrs = (void *)NULL;
     //bi->DeleteFeature = (void *)NULL;
+
+    // The functions which write the display lists of the family
+    bi->SetPanning = family->SetPanning;
+    bi->SetSprite = family->SetSprite;
+    bi->SetSpritePosition = family->SetSpritePosition;
 }

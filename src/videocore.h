@@ -25,6 +25,8 @@
 
 #define CLOCK_HZ        25000000
 
+struct ChipFamily;
+
 struct Size {
     UWORD width;
     UWORD height;
@@ -45,8 +47,7 @@ struct VideoCoreBase {
     APTR                    vc_UnicamBase;
     APTR                    vc_MailboxBase;
     APTR                    vc_HVS;
-    APTR                    vc_DisplayList;    // HVS display list memory, set by the InitChip of the family
-    void                  (*vc_ConstructUnicamDL)(struct VideoCoreBase *);  // display list of Unicam for an old unicam.resource, set by InitChip
+    const struct ChipFamily *vc_Family;         // VC4 or VC6, set by Chip_Init()
     APTR                    vc_BuddyAllocator;
     APTR                    vc_MemBase;
     uint32_t                vc_MemSize;

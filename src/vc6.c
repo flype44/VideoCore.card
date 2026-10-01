@@ -146,11 +146,12 @@ static void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
 
         if (0)
             bug("[VC6] Selected scale: %08lx (X: %08lx, Y: %08lx, 1/X: %08lx, 1/Y: %08lx)\n"
-                "[VC6] Scaled size: %ld x %ld, offset X %ld, offset Y %ld\n", scale, scale_x, scale_y, recip_x, recip_y,
+                "[VC6] Scaled size: %ld x %ld, offset X %ld, offset Y %ld\n", 
+				scale, scale_x, scale_y, recip_x, recip_y,
                 calc_width, calc_height, offset_x, offset_y);
     }
 
-    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_DisplayList;
+    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_Family->DisplayList;
    
     if (unity) {
         if (offset_only) {
@@ -508,7 +509,7 @@ static void VC6_ConstructUnicamDL(struct VideoCoreBase *VideoCoreBase)
 
     ULONG cnt = 0x300; // Initial pointer to UnicamDL
 
-    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_DisplayList;
+    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_Family->DisplayList;
 
     if (crop_w == VideoCoreBase->vc_DispSize.width &&
         crop_h == VideoCoreBase->vc_DispSize.height && aspect == 1000)
@@ -675,17 +676,12 @@ static void VC6_ConstructUnicamDL(struct VideoCoreBase *VideoCoreBase)
 }
 
 /* Fills the BoardInfo with the functions of VideoCore 6 */
-void VC6_InitChip(struct BoardInfo *bi)
-{
-    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)bi->CardBase;
-
-    VideoCoreBase->vc_DisplayList = (APTR)VC6_DISPLAY_LIST;
-    VideoCoreBase->vc_ConstructUnicamDL = VC6_ConstructUnicamDL;
-
-    /* What both families do the same way, then what writes the display lists of this one */
-    Chip_Init(bi);
-
-    bi->SetPanning = (void *)VC6_SetPanning;
-    bi->SetSprite = (void *)VC6_SetSprite;
-    bi->SetSpritePosition = (void *)VC6_SetSpritePosition;
-}
+/* What makes VC6 itself */
+const struct ChipFamily VC6_Family = {
+    "VC6",
+    (APTR)VC6_DISPLAY_LIST,
+    VC6_ConstructUnicamDL,
+    VC6_SetPanning,
+    VC6_SetSprite,
+    VC6_SetSpritePosition
+};
