@@ -395,6 +395,28 @@ static UWORD Chip_SetDisplay(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD ena
     return 1;
 }
 
+/* Display power on or off, through the firmware. The card gives it to the BoardInfo when the ToolType asked for it
+   and the firmware knows the display. */
+void Chip_SetDPMSLevel(REGARG(struct BoardInfo *b, "a0"), REGARG(ULONG level, "d0"))
+{
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    if (0)
+    {
+        bug("[VC] SetDPMSLevel(%ld)\n", level);
+    }
+
+    /* display power on or off */
+    BOOL ret = SetDisplayPower(VideoCoreBase->vc_DisplayID, 
+        (level == DPMS_OFF) ? 0 : 1, VideoCoreBase);
+
+    /* display power debug */
+    if (0)
+    {
+        bug("[VC] SetDisplayPower(display_id: %ld, state: %ld): %ld\n", 
+            VideoCoreBase->vc_DisplayID, (level == DPMS_OFF) ? 0 : 1, ret);
+    }
+}
+
 /* Gives the BoardInfo the functions both families share */
 void Chip_Init(struct BoardInfo *bi)
 {
