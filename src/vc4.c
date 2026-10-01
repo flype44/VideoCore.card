@@ -100,24 +100,24 @@ static void VC4_SetGC(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo 
 }
 
 static const ULONG mode_table[] = {
-    [RGBFB_A8R8G8B8] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_RGBA),
-    [RGBFB_A8B8G8R8] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_BGRA),
-    [RGBFB_B8G8R8A8] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_ABGR),
-    [RGBFB_R8G8B8A8] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_ARGB),
+    [RGBFB_A8R8G8B8] = VC4_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | VC4_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_RGBA),
+    [RGBFB_A8B8G8R8] = VC4_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | VC4_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_BGRA),
+    [RGBFB_B8G8R8A8] = VC4_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | VC4_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_ABGR),
+    [RGBFB_R8G8B8A8] = VC4_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | VC4_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_ARGB),
 
-    [RGBFB_R8G8B8] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB888) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR),
-    [RGBFB_B8G8R8] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB888) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
+    [RGBFB_R8G8B8] = VC4_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB888) | VC4_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR),
+    [RGBFB_B8G8R8] = VC4_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB888) | VC4_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
 
-    [RGBFB_R5G6B5PC] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB565) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
-    [RGBFB_R5G5B5PC] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB555) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
+    [RGBFB_R5G6B5PC] = VC4_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB565) | VC4_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
+    [RGBFB_R5G5B5PC] = VC4_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB555) | VC4_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
 
-    [RGBFB_R5G6B5] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB565) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
-    [RGBFB_R5G5B5] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB555) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
+    [RGBFB_R5G6B5] = VC4_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB565) | VC4_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
+    [RGBFB_R5G5B5] = VC4_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB555) | VC4_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
 
-    [RGBFB_B5G6R5PC] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB565) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR),
-    [RGBFB_B5G5R5PC] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB555) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR),
+    [RGBFB_B5G6R5PC] = VC4_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB565) | VC4_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR),
+    [RGBFB_B5G5R5PC] = VC4_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB555) | VC4_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR),
 
-    [RGBFB_CLUT] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_PALETTE) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR)
+    [RGBFB_CLUT] = VC4_CONTROL_FORMAT(HVS_PIXEL_FORMAT_PALETTE) | VC4_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR)
 };
 
 static UWORD VC4_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
@@ -317,18 +317,18 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
             int cnt = pos + 1;
 
             VideoCoreBase->vc_PlaneCoord = &displist[cnt];
-            wr32le(&displist[cnt++], POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
+            wr32le(&displist[cnt++], VC4_POS0_X(offset_x) | VC4_POS0_Y(offset_y) | VC4_POS0_ALPHA(0xff));
             
-            wr32le(&displist[cnt++], POS2_H(b->ModeInfo->Height) | POS2_W(b->ModeInfo->Width) | (1 << 30));
+            wr32le(&displist[cnt++], VC4_POS2_H(b->ModeInfo->Height) | VC4_POS2_W(b->ModeInfo->Width) | (1 << 30));
             wr32le(&displist[cnt++], 0xdeadbeef);
             wr32le(&displist[cnt++], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             wr32le(&displist[cnt++], 0xdeadbeef);
             wr32le(&displist[cnt++], bytes_per_row);
 
             wr32le(&displist[pos],
-                CONTROL_VALID
-                | CONTROL_WORDS(cnt - pos)
-                | CONTROL_UNITY
+                VC4_CONTROL_VALID
+                | VC4_CONTROL_WORDS(cnt - pos)
+                | VC4_CONTROL_UNITY
                 | mode_table[format]);
 
             VideoCoreBase->vc_PlaneScalerX = NULL;
@@ -338,10 +338,10 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
             cnt = mouse_pos + 1;
 
             VideoCoreBase->vc_MouseCoord = &displist[cnt];
-            wr32le(&displist[cnt++], POS0_X(offset_x + VideoCoreBase->vc_MouseX - x_offset) |
-                                     POS0_Y(offset_y + VideoCoreBase->vc_MouseY - y_offset) | POS0_ALPHA(0xff));
-            wr32le(&displist[cnt++], POS1_H(sprite_height) | POS1_W(sprite_width));
-            wr32le(&displist[cnt++], POS2_H(MAXSPRITEHEIGHT) | POS2_W(MAXSPRITEWIDTH) | (SCALER_POS2_ALPHA_MODE_PIPELINE << SCALER_POS2_ALPHA_MODE_SHIFT));
+            wr32le(&displist[cnt++], VC4_POS0_X(offset_x + VideoCoreBase->vc_MouseX - x_offset) |
+                                     VC4_POS0_Y(offset_y + VideoCoreBase->vc_MouseY - y_offset) | VC4_POS0_ALPHA(0xff));
+            wr32le(&displist[cnt++], VC4_POS1_H(sprite_height) | VC4_POS1_W(sprite_width));
+            wr32le(&displist[cnt++], VC4_POS2_H(MAXSPRITEHEIGHT) | VC4_POS2_W(MAXSPRITEWIDTH) | (VC4_SCALER_POS2_ALPHA_MODE_PIPELINE << VC4_SCALER_POS2_ALPHA_MODE_SHIFT));
             wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
 
             wr32le(&displist[cnt++], 0xc0000000 | (ULONG)VideoCoreBase->vc_SpriteShape);
@@ -373,8 +373,8 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
             wr32le(&displist[cnt++], unity_kernel);
 
             wr32le(&displist[mouse_pos],
-                CONTROL_VALID               |
-                CONTROL_WORDS(cnt-mouse_pos)    |
+                VC4_CONTROL_VALID               |
+                VC4_CONTROL_WORDS(cnt-mouse_pos)    |
                 0x01800 | 
                 mode_table[RGBFB_CLUT]
             );
@@ -404,9 +404,9 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
             int cnt = pos + 1;
 
             VideoCoreBase->vc_PlaneCoord = &displist[cnt];
-            wr32le(&displist[cnt++], POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
-            wr32le(&displist[cnt++], POS1_H(calc_height) | POS1_W(calc_width));
-            wr32le(&displist[cnt++], POS2_H(b->ModeInfo->Height) | POS2_W(b->ModeInfo->Width) | (SCALER_POS2_ALPHA_MODE_FIXED << SCALER_POS2_ALPHA_MODE_SHIFT));
+            wr32le(&displist[cnt++], VC4_POS0_X(offset_x) | VC4_POS0_Y(offset_y) | VC4_POS0_ALPHA(0xff));
+            wr32le(&displist[cnt++], VC4_POS1_H(calc_height) | VC4_POS1_W(calc_width));
+            wr32le(&displist[cnt++], VC4_POS2_H(b->ModeInfo->Height) | VC4_POS2_W(b->ModeInfo->Width) | (VC4_SCALER_POS2_ALPHA_MODE_FIXED << VC4_SCALER_POS2_ALPHA_MODE_SHIFT));
             wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
 
             wr32le(&displist[cnt++], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
@@ -444,8 +444,8 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
             wr32le(&displist[cnt++], kernel_start);
 
             wr32le(&displist[pos],
-                CONTROL_VALID           |
-                CONTROL_WORDS(cnt-pos)  |
+                VC4_CONTROL_VALID           |
+                VC4_CONTROL_WORDS(cnt-pos)  |
                 0x01800                 |
                 mode_table[format]
             );
@@ -454,10 +454,10 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
             cnt = mouse_pos + 1;
 
             VideoCoreBase->vc_MouseCoord = &displist[cnt];
-            wr32le(&displist[cnt++], POS0_X(offset_x + 0x10000 * (VideoCoreBase->vc_MouseX - x_offset) / VideoCoreBase->vc_ScaleX) |
-                                     POS0_Y(offset_y + 0x10000 * (VideoCoreBase->vc_MouseY - y_offset) / VideoCoreBase->vc_ScaleY) | POS0_ALPHA(0xff));
-            wr32le(&displist[cnt++], POS1_H(sprite_height) | POS1_W(sprite_width));
-            wr32le(&displist[cnt++], POS2_H(MAXSPRITEHEIGHT) | POS2_W(MAXSPRITEWIDTH) | (SCALER_POS2_ALPHA_MODE_PIPELINE << SCALER_POS2_ALPHA_MODE_SHIFT));
+            wr32le(&displist[cnt++], VC4_POS0_X(offset_x + 0x10000 * (VideoCoreBase->vc_MouseX - x_offset) / VideoCoreBase->vc_ScaleX) |
+                                     VC4_POS0_Y(offset_y + 0x10000 * (VideoCoreBase->vc_MouseY - y_offset) / VideoCoreBase->vc_ScaleY) | VC4_POS0_ALPHA(0xff));
+            wr32le(&displist[cnt++], VC4_POS1_H(sprite_height) | VC4_POS1_W(sprite_width));
+            wr32le(&displist[cnt++], VC4_POS2_H(MAXSPRITEHEIGHT) | VC4_POS2_W(MAXSPRITEWIDTH) | (VC4_SCALER_POS2_ALPHA_MODE_PIPELINE << VC4_SCALER_POS2_ALPHA_MODE_SHIFT));
             wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
 
             wr32le(&displist[cnt++], 0xc0000000 | (ULONG)VideoCoreBase->vc_SpriteShape);
@@ -487,8 +487,8 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
             wr32le(&displist[cnt++], kernel_start);
 
             wr32le(&displist[mouse_pos],
-                CONTROL_VALID               |
-                CONTROL_WORDS(cnt-mouse_pos)    |
+                VC4_CONTROL_VALID               |
+                VC4_CONTROL_WORDS(cnt-mouse_pos)    |
                 0x01800 | 
                 mode_table[RGBFB_CLUT]
             );
@@ -698,13 +698,13 @@ static void VC4_SetSprite(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable,
             _y = VideoCoreBase->vc_MouseY;
 
         if (VideoCoreBase->vc_MouseCoord) {
-            wr32le(&VideoCoreBase->vc_MouseCoord[0], POS0_X(_x) | POS0_Y(_y) | POS0_ALPHA(0xff));
+            wr32le(&VideoCoreBase->vc_MouseCoord[0], VC4_POS0_X(_x) | VC4_POS0_Y(_y) | VC4_POS0_ALPHA(0xff));
         }
     }
     else
     {
         if (VideoCoreBase->vc_MouseCoord) {
-            wr32le(&VideoCoreBase->vc_MouseCoord[0], POS0_X(-1) | POS0_Y(-1) | POS0_ALPHA(0xff));
+            wr32le(&VideoCoreBase->vc_MouseCoord[0], VC4_POS0_X(-1) | VC4_POS0_Y(-1) | VC4_POS0_ALPHA(0xff));
         }
     }
 }
@@ -742,7 +742,7 @@ static void VC4_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD
     _y += VideoCoreBase->vc_OffsetY;
 
     if (VideoCoreBase->vc_MouseCoord) {   
-        wr32le(&VideoCoreBase->vc_MouseCoord[0], POS0_X(_x) | POS0_Y(_y) | POS0_ALPHA(0xff));
+        wr32le(&VideoCoreBase->vc_MouseCoord[0], VC4_POS0_X(_x) | VC4_POS0_Y(_y) | VC4_POS0_ALPHA(0xff));
     }
 }
 
@@ -937,9 +937,9 @@ static void VC4_ConstructUnicamDL(struct VideoCoreBase *VideoCoreBase)
 
         /* Set control reg */
         ULONG control =
-            CONTROL_VALID
-            | CONTROL_WORDS(7)
-            | CONTROL_UNITY;
+            VC4_CONTROL_VALID
+            | VC4_CONTROL_WORDS(7)
+            | VC4_CONTROL_UNITY;
 
         if (bpp == 2)
             control |= mode_table[RGBFB_R5G6B5PC];
@@ -949,8 +949,8 @@ static void VC4_ConstructUnicamDL(struct VideoCoreBase *VideoCoreBase)
         wr32le(&displist[cnt++], control);
 
         /* Center it on the screen */
-        wr32le(&displist[cnt++], POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
-        wr32le(&displist[cnt++], POS2_H(crop_h) | POS2_W(crop_w) | (1 << 30));
+        wr32le(&displist[cnt++], VC4_POS0_X(offset_x) | VC4_POS0_Y(offset_y) | VC4_POS0_ALPHA(0xff));
+        wr32le(&displist[cnt++], VC4_POS2_H(crop_h) | VC4_POS2_W(crop_w) | (1 << 30));
         wr32le(&displist[cnt++], 0xdeadbeef);
 
         /* Set address */
@@ -971,8 +971,8 @@ static void VC4_ConstructUnicamDL(struct VideoCoreBase *VideoCoreBase)
 
         /* Set control reg */
         ULONG control = 
-            CONTROL_VALID
-            | CONTROL_WORDS(16)
+            VC4_CONTROL_VALID
+            | VC4_CONTROL_WORDS(16)
             | 0x01800;
 
         if (bpp == 2)
@@ -983,9 +983,9 @@ static void VC4_ConstructUnicamDL(struct VideoCoreBase *VideoCoreBase)
         wr32le(&displist[cnt++], control);
 
         /* Center plane on the screen */
-        wr32le(&displist[cnt++], POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
-        wr32le(&displist[cnt++], POS1_H(calc_height) | POS1_W(calc_width));
-        wr32le(&displist[cnt++], POS2_H(crop_h) | POS2_W(crop_w) | (SCALER_POS2_ALPHA_MODE_FIXED << SCALER_POS2_ALPHA_MODE_SHIFT));
+        wr32le(&displist[cnt++], VC4_POS0_X(offset_x) | VC4_POS0_Y(offset_y) | VC4_POS0_ALPHA(0xff));
+        wr32le(&displist[cnt++], VC4_POS1_H(calc_height) | VC4_POS1_W(calc_width));
+        wr32le(&displist[cnt++], VC4_POS2_H(crop_h) | VC4_POS2_W(crop_w) | (VC4_SCALER_POS2_ALPHA_MODE_FIXED << VC4_SCALER_POS2_ALPHA_MODE_SHIFT));
         wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
 
         /* Set address and pitch */
