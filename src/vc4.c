@@ -24,6 +24,7 @@ static void VC4_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD
 #include "buddyalloc.h"
 #include "hvs.h"
 #include "chip.h"
+#include "vblank.h"
 
 static const ULONG mode_table[] = {
     [RGBFB_A8R8G8B8] = VC4_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | VC4_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_RGBA),
@@ -207,13 +208,13 @@ static void VC4_SetSprite(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable,
             _y = VideoCoreBase->vc_MouseY;
 
         if (VideoCoreBase->vc_MouseCoord) {
-            wr32le(&VideoCoreBase->vc_MouseCoord[0], VC4_POS0_X(_x) | VC4_POS0_Y(_y) | VC4_POS0_ALPHA(0xff));
+            VBlank_WriteSprite(VideoCoreBase, VC4_POS0_X(_x) | VC4_POS0_Y(_y) | VC4_POS0_ALPHA(0xff));
         }
     }
     else
     {
         if (VideoCoreBase->vc_MouseCoord) {
-            wr32le(&VideoCoreBase->vc_MouseCoord[0], VC4_POS0_X(-1) | VC4_POS0_Y(-1) | VC4_POS0_ALPHA(0xff));
+            VBlank_WriteSprite(VideoCoreBase, VC4_POS0_X(-1) | VC4_POS0_Y(-1) | VC4_POS0_ALPHA(0xff));
         }
     }
 }
@@ -251,7 +252,7 @@ static void VC4_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD
     _y += VideoCoreBase->vc_OffsetY;
 
     if (VideoCoreBase->vc_MouseCoord) {   
-        wr32le(&VideoCoreBase->vc_MouseCoord[0], VC4_POS0_X(_x) | VC4_POS0_Y(_y) | VC4_POS0_ALPHA(0xff));
+        VBlank_WriteSprite(VideoCoreBase, VC4_POS0_X(_x) | VC4_POS0_Y(_y) | VC4_POS0_ALPHA(0xff));
     }
 }
 

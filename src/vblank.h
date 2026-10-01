@@ -15,6 +15,13 @@
 */
 BOOL VBlank_Init(struct BoardInfo *bi);
 
+/*
+    Writes the position word of the sprite plane (the first word of vc_MouseCoord). The HVS draws a shifted copy of
+    the sprite for a frame when that word changes in the middle of one, so with the interrupt the word waits for
+    the next vertical blank, written by the handler (the latest one wins). Without the interrupt it is written at once.
+*/
+void VBlank_WriteSprite(struct VideoCoreBase *VideoCoreBase, ULONG word);
+
 /* Takes the interrupt out again: the source is switched off, the handler removed, gic400.library closed. Does
    nothing when VBlank_Init() did not set it up. */
 void VBlank_Exit(struct VideoCoreBase *VideoCoreBase);

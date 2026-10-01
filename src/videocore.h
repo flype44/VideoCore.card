@@ -38,6 +38,8 @@ struct VBlank {
     ULONG                  Irq;                 // GIC interrupt id
     struct Interrupt *     Interrupt;           // what was registered with it, to take it out again
     volatile ULONG         Count;               // interrupts seen
+    volatile ULONG         SpriteWord;          // position word of the sprite plane which waits for the vertical blank
+    volatile UBYTE         SpritePending;
 };
 
 enum SwitchMode {

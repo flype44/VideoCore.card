@@ -596,6 +596,7 @@ static void Chip_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *add
         do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VideoCoreBase->vc_DispSize.height);
 
         wr32le((volatile uint32_t *)(HVS_BASE + SCALER_DISPLIST1), pos);
+        VideoCoreBase->vc_VBlank.SpritePending = FALSE;     // the new plane has the current position of the mouse
         BuddyFree(VideoCoreBase, VideoCoreBase->vc_ActivePlane);
         VideoCoreBase->vc_ActivePlane = plane;
     }

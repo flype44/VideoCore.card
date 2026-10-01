@@ -17,6 +17,7 @@
 #include "vc4.h"
 #include "vc6.h"
 #include "buddyalloc.h"
+#include "vblank.h"
 #include <resources/unicam.h>
 
 extern ULONG host_unicam_config;
@@ -34,6 +35,13 @@ typedef void (*SetSpriteImageFn)(struct BoardInfo *, RGBFTYPE);
 typedef void (*SetSpriteColorFn)(struct BoardInfo *, UBYTE, UBYTE, UBYTE, UBYTE, RGBFTYPE);
 typedef UWORD (*SetSwitchFn)(struct BoardInfo *, UWORD);
 typedef void (*SetColorArrayFn)(struct BoardInfo *, UWORD, UWORD);
+
+/* No interrupt on the host: the position of the sprite is written at once, as without gic400.library */
+void VBlank_WriteSprite(struct VideoCoreBase *VideoCoreBase, ULONG word)
+{
+    if (VideoCoreBase->vc_MouseCoord)
+        wr32le(&VideoCoreBase->vc_MouseCoord[0], word);
+}
 
 static struct BoardInfo bi;
 static struct ModeInfo mi;

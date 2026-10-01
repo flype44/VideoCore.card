@@ -20,6 +20,7 @@
 #include "buddyalloc.h"
 #include "hvs.h"
 #include "chip.h"
+#include "vblank.h"
 
 static void VC6_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0"),
                                   REGARG(WORD y, "d1"), REGARG(RGBFTYPE format, "d7"));
@@ -212,13 +213,13 @@ static void VC6_SetSprite(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable,
             _y = VideoCoreBase->vc_MouseY;
 
         if (VideoCoreBase->vc_MouseCoord) {
-            wr32le(&VideoCoreBase->vc_MouseCoord[0], VC6_POS0_X(_x) | VC6_POS0_Y(_y));
+            VBlank_WriteSprite(VideoCoreBase, VC6_POS0_X(_x) | VC6_POS0_Y(_y));
         }
     }
     else
     {
         if (VideoCoreBase->vc_MouseCoord) {
-            wr32le(&VideoCoreBase->vc_MouseCoord[0], VC6_POS0_X(-1) | VC6_POS0_Y(-1));
+            VBlank_WriteSprite(VideoCoreBase, VC6_POS0_X(-1) | VC6_POS0_Y(-1));
         }
     }
 }
@@ -256,7 +257,7 @@ static void VC6_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD
     _y += VideoCoreBase->vc_OffsetY;
 
     if (VideoCoreBase->vc_MouseCoord) {   
-        wr32le(&VideoCoreBase->vc_MouseCoord[0], VC6_POS0_X(_x) | VC6_POS0_Y(_y));
+        VBlank_WriteSprite(VideoCoreBase, VC6_POS0_X(_x) | VC6_POS0_Y(_y));
     }
 }
 

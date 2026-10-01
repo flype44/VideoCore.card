@@ -111,20 +111,56 @@ static ULONG VBlank_Interrupt(REGARG(struct BoardInfo *bi, "a1"))
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)bi->CardBase;
     struct ExecBase *SysBase = VideoCoreBase->vc_LibNode.ExecBase;
+    struct VBlank *vblank = &VideoCoreBase->vc_VBlank;
+    BOOL waiting;
 
     if ((PV_Read(PV_INTSTAT) & PV_INT_VFP_START) == 0)
         return 0;
 
     PV_Write(PV_INTSTAT, PV_INT_VFP_START);     /* write 1 to clear */
-    VideoCoreBase->vc_VBlank.Count++;
+    vblank->Count++;
 
-    /* Nobody waits and nothing is double buffered: switch the interrupt off until SetInterrupt() is called */
-    if ((bi->WaitQ.mlh_Head == NULL || bi->WaitQ.mlh_Head->mln_Succ == NULL) && bi->DoubleBufferList == NULL)
+    /* Nobody waits and nothing is double buffered: switch the interrupt off until SetInterrupt() is called, or
+       until a position of the sprite arrives. This comes first: a position queued after it has switched the
+       interrupt on again, one queued before it is seen below. */
+    waiting = !((bi->WaitQ.mlh_Head == NULL || bi->WaitQ.mlh_Head->mln_Succ == NULL) && bi->DoubleBufferList == NULL);
+    if (!waiting)
         PV_Write(PV_INTEN, 0);
-    else
+
+    /* The flag goes first: a word queued while this one is written sets it again */
+    if (vblank->SpritePending)
+    {
+        vblank->SpritePending = FALSE;
+
+        if (VideoCoreBase->vc_MouseCoord != NULL)
+            wr32le(&VideoCoreBase->vc_MouseCoord[0], vblank->SpriteWord);
+    }
+
+    if (waiting)
         Cause(&bi->SoftInterrupt);
 
     return 1;
+}
+
+void VBlank_WriteSprite(struct VideoCoreBase *VideoCoreBase, ULONG word)
+{
+    struct VBlank *vblank = &VideoCoreBase->vc_VBlank;
+
+    if (VideoCoreBase->vc_MouseCoord == NULL)
+        return;
+
+    if (vblank->Gic == NULL)
+    {
+        wr32le(&VideoCoreBase->vc_MouseCoord[0], word);
+        return;
+    }
+
+    vblank->SpriteWord = word;
+    vblank->SpritePending = TRUE;
+
+    /* Switch the interrupt on, from a status which is clear: the next one is the next vertical blank */
+    PV_Write(PV_INTSTAT, PV_INT_VFP_START);
+    PV_Write(PV_INTEN, PV_INT_VFP_START);
 }
 
 /* rtg.library enables the interrupt when a task starts to wait and disables it at the screen switches.
