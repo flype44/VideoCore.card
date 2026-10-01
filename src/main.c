@@ -182,6 +182,7 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreB
 #include "messages.h"
 #include "chip.h"
 #include "task.h"
+#include "vblank.h"
 
 /* The value of a ToolType which switches something on: YES, TRUE or 1 */
 static BOOL ToolTypeIsOn(struct Library *IconBase, CONST_STRPTR value)
@@ -289,6 +290,8 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     VideoCoreBase->vc_IntegerScaler = 0;
     VideoCoreBase->vc_UseDPMS = FALSE;
 
+    BOOL vblank = TRUE;     /* VC_VBLANK=No: no vertical blank interrupt */
+
     APTR UnicamBase = VideoCoreBase->vc_UnicamBase;
 
     /* If Unicam was activated on boot, pre-select CSI switch mode */
@@ -302,6 +305,8 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     {
         CONST_STRPTR value;
 
+        if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC_VBLANK")) != NULL && *value != 0 && !ToolTypeIsOn(IconBase, value))
+            vblank = FALSE;
         if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC4_LEGACY_ID")) != NULL && (*value == 0 || ToolTypeIsOn(IconBase, value)))
         {
             bi->BoardType = BT_uaegfx;
@@ -461,6 +466,10 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
     /* Scaling kernels and the display list of Unicam */
     HVS_Init(VideoCoreBase);
+
+    /* A vertical blank interrupt, which lets rtg.library sleep in WaitBOVP() instead of spinning */
+    if (vblank)
+        VBlank_Init(bi);
 
     /* The task which answers the messages of the clients */
     Task_Start(bi);
