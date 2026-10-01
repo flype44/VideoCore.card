@@ -194,8 +194,11 @@ static void Chip_WaitVerticalSync(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
     volatile ULONG *stat = (ULONG*)(HVS_BASE + SCALER_DISPSTAT1);
 
-    // Wait until current vbeampos is lower than the one obtained above
-    do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VideoCoreBase->vc_DispSize.height);
+    // Wait until current vbeampos is lower than the one obtained above. A frame lasts 17 ms: if it takes much longer
+    // the HVS is not running, do not hang.
+    ULONG reads = 3000000;
+
+    do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VideoCoreBase->vc_DispSize.height && --reads != 0);
 }
 
 static void Chip_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
