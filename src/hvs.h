@@ -66,6 +66,11 @@ enum palette_type {
 #define SCALER_CTL0_SCL_H_NONE_V_TPZ            6
 #define SCALER_CTL0_SCL_H_TPZ_V_NONE            7
 
+/* Word index of the palette of the 8 bit planes in the display list memory. Below it (up to 0x2ff) are the planes
+   of the buddy allocator; the HVS also runs a list of an other channel at 0x334 (SCALER_DISPLIST0), which a palette
+   there would overwrite and which would write its scratch words into the palette. */
+#define HVS_PALETTE                             0x400
+
 #define SCALER_DISPLIST0                        0x00000020
 #define SCALER_DISPLIST1                        0x00000024
 #define SCALER_DISPLIST2                        0x00000028

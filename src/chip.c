@@ -378,7 +378,7 @@ static void Chip_SetColorArray(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD s
     
     for(int i = start; i < j; i++) {
         unsigned long xrgb = 0xff000000 | (b->CLUT[i].Blue) | (b->CLUT[i].Green << 8) | (b->CLUT[i].Red << 16);
-        wr32le(&displist[0x300 + i], xrgb);
+        wr32le(&displist[HVS_PALETTE + i], xrgb);
     }
 }
 

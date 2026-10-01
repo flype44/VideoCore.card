@@ -69,7 +69,7 @@ static int VC4_WriteSprite(struct BoardInfo *b, const struct Panning *pan, int c
     wr32le(&displist[cnt++], MAXSPRITEWIDTH);
 
     int clut_off = cnt;
-    wr32le(&displist[cnt++], 0xc0000000 | (0x300 << 2));
+    wr32le(&displist[cnt++], 0xc0000000 | (HVS_PALETTE << 2));
 
     // LMB address - just behind LMB of main plane
     wr32le(&displist[cnt++], 16 * b->ModeInfo->Width / 2);
@@ -149,7 +149,7 @@ static int VC4_WritePlane(struct BoardInfo *b, const struct Panning *pan, int po
 
         // Palette mode - offset of palette placed in dlist
         if (pan->Format == RGBFB_CLUT) {
-            wr32le(&displist[cnt++], 0xc0000000 | (0x300 << 2));
+            wr32le(&displist[cnt++], 0xc0000000 | (HVS_PALETTE << 2));
         }
 
         // LMB address

@@ -25,7 +25,7 @@ void host_clear(unsigned long addr, unsigned long len);
 
 #define REGS_BASE   0xf2000000UL
 #define REGS_LEN    0x00420000UL    /* up to the end of the display list memory of the HVS */
-#define DL_WORDS    0x400
+#define DL_WORDS    0x410
 
 typedef void (*SetPanningFn)(struct BoardInfo *, UBYTE *, UWORD, WORD, WORD, RGBFTYPE);
 typedef void (*SetSpriteFn)(struct BoardInfo *, BOOL, RGBFTYPE);
