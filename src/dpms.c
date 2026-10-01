@@ -17,7 +17,7 @@ static void SetDPMSLevel(REGARG(struct BoardInfo *b, "a0"), REGARG(ULONG level, 
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
     if (0)
     {
-        bug("[VC4] SetDPMSLevel(%ld)\n", level);
+        bug("[VC] SetDPMSLevel(%ld)\n", level);
     }
 
     /* display power on or off */
@@ -27,7 +27,7 @@ static void SetDPMSLevel(REGARG(struct BoardInfo *b, "a0"), REGARG(ULONG level, 
     /* display power debug */
     if (0)
     {
-        bug("[VC4] SetDisplayPower(display_id: %ld, state: %ld): %ld\n", 
+        bug("[VC] SetDisplayPower(display_id: %ld, state: %ld): %ld\n", 
             VideoCoreBase->vc_DisplayID, (level == DPMS_OFF) ? 0 : 1, ret);
     }
 }

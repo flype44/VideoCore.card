@@ -70,7 +70,7 @@ static void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
     int offset_only = 0;
 
     if (0) {
-        bug("[VC4] SetPanning %lx %ld %ld %ld %lx\n", addr, width, x_offset, y_offset, format);
+        bug("[VC6] SetPanning %lx %ld %ld %ld %lx\n", addr, width, x_offset, y_offset, format);
     }
 
     if (VideoCoreBase->vc_LastPanning.lp_Addr != NULL && 
@@ -79,7 +79,7 @@ static void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
     {
         if (addr == VideoCoreBase->vc_LastPanning.lp_Addr && x_offset == VideoCoreBase->vc_LastPanning.lp_X && y_offset == VideoCoreBase->vc_LastPanning.lp_Y) {
             if (0) {
-                bug("[VC4] same panning as before. Skipping now\n");
+                bug("[VC6] same panning as before. Skipping now\n");
             }
             return;
         }
@@ -145,8 +145,8 @@ static void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
         VideoCoreBase->vc_OffsetY = offset_y;
 
         if (0)
-            bug("[VC4] Selected scale: %08lx (X: %08lx, Y: %08lx, 1/X: %08lx, 1/Y: %08lx)\n"
-                "[VC4] Scaled size: %ld x %ld, offset X %ld, offset Y %ld\n", scale, scale_x, scale_y, recip_x, recip_y,
+            bug("[VC6] Selected scale: %08lx (X: %08lx, Y: %08lx, 1/X: %08lx, 1/Y: %08lx)\n"
+                "[VC6] Scaled size: %ld x %ld, offset X %ld, offset Y %ld\n", scale, scale_x, scale_y, recip_x, recip_y,
                 calc_width, calc_height, offset_x, offset_y);
     }
 
