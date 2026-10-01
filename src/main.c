@@ -427,7 +427,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     HVS_Init(VideoCoreBase);
 
     /* The task which answers the messages of the clients */
-    Task_Start(VideoCoreBase);
+    Task_Start(bi);
 
     VideoCoreBase->vc_SpriteShape = AllocMem(MAXSPRITEWIDTH * MAXSPRITEHEIGHT, MEMF_FAST | MEMF_REVERSE | MEMF_CLEAR);
 

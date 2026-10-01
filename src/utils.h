@@ -2,6 +2,7 @@
 #define _UTILS_H
 
 #include <exec/tasks.h>
+#include <exec/libraries.h>
 #include <utility/tagitem.h>
 
 enum {
@@ -27,9 +28,10 @@ ULONG _atoul(CONST_STRPTR str);
 CONST_STRPTR MatchToolType(CONST_STRPTR tooltype, CONST_STRPTR name);
 BOOL YesOrTrue(CONST_STRPTR value);
 
-struct Task * NewCreateTaskTags(struct TagItem *tags);
+/* The utility.library to use is the one of the BoardInfo, rtg.library gives it to the card */
+struct Task * NewCreateTaskTags(struct TagItem *tags, struct Library *UtilityBase);
 
-#define NewCreateTask(...)          \
-    ({ struct TagItem tags[] = { __VA_ARGS__ }; struct Task *t = NewCreateTaskTags(tags); t; })
+#define NewCreateTask(UtilityBase, ...)          \
+    ({ struct TagItem tags[] = { __VA_ARGS__ }; struct Task *t = NewCreateTaskTags(tags, UtilityBase); t; })
 
 #endif /* _UTILS_H */

@@ -84,10 +84,9 @@ ULONG _atoul(CONST_STRPTR str)
     return num;
 }
 
-struct Task * NewCreateTaskTags(struct TagItem *tags)
+struct Task * NewCreateTaskTags(struct TagItem *tags, struct Library *UtilityBase)
 {
     struct ExecBase *SysBase = *(struct ExecBase **)4;
-    struct Library *UtilityBase = OpenLibrary("utility.library", 0);
     struct Task *task = NULL;
 
     APTR entry = (APTR)GetTagData(TASKTAG_PC, 0, tags);
@@ -158,7 +157,5 @@ struct Task * NewCreateTaskTags(struct TagItem *tags)
         AddTask(task, entry, NULL);
     }
     
-    CloseLibrary(UtilityBase);
-
     return task;
 }

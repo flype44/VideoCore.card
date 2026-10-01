@@ -11,6 +11,7 @@
 #include <proto/exec.h>
 
 #include "videocore.h"
+#include "boardinfo.h"
 #include "hvs.h"
 #include "utils.h"
 #include "messages.h"
@@ -80,9 +81,11 @@ static void vc_Task()
     DeleteMsgPort(port);
 }
 
-void Task_Start(struct VideoCoreBase *VideoCoreBase)
+void Task_Start(struct BoardInfo *bi)
 {
-    VideoCoreBase->vc_Task = NewCreateTask(
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)bi->CardBase;
+
+    VideoCoreBase->vc_Task = NewCreateTask(bi->UtilBase,
         TASKTAG_PC,         (Tag)vc_Task,
         TASKTAG_NAME,       (Tag)"VideoCore Task",
         TASKTAG_STACKSIZE,  10240,

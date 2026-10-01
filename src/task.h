@@ -2,7 +2,8 @@
 #define _TASK_H
 
 #include "videocore.h"
+#include "boardinfo.h"
 
-void Task_Start(struct VideoCoreBase *VideoCoreBase);
+void Task_Start(struct BoardInfo *bi);
 
 #endif /* _TASK_H */
