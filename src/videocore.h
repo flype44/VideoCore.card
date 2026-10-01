@@ -1,5 +1,5 @@
-#ifndef _EMU68_VC4_H
-#define _EMU68_VC4_H
+#ifndef _VIDEOCORE_H
+#define _VIDEOCORE_H
 
 #include <exec/types.h>
 #include <exec/libraries.h>
@@ -34,7 +34,7 @@ enum SwitchMode {
     CSI,
 };
 
-struct VC4Base {
+struct VideoCoreBase {
     struct CardBase         vc4_LibNode;
     BPTR                    vc4_SegList;
     struct ExecBase *       vc4_SysBase;
@@ -46,7 +46,7 @@ struct VC4Base {
     APTR                    vc4_MailboxBase;
     APTR                    vc4_HVS;
     APTR                    vc4_DisplayList;    // HVS display list memory, set by the InitChip of the family
-    void                  (*vc4_ConstructUnicamDL)(struct VC4Base *);  // display list of Unicam for an old unicam.resource, set by InitChip
+    void                  (*vc4_ConstructUnicamDL)(struct VideoCoreBase *);  // display list of Unicam for an old unicam.resource, set by InitChip
     APTR                    vc4_BuddyAllocator;
     APTR                    vc4_MemBase;
     uint32_t                vc4_MemSize;
@@ -194,4 +194,4 @@ enum palette_type {
 #define SCALER_DISPSTATX_FRAME_COUNT_MASK       VC4_MASK(17, 12)
 #define SCALER_DISPSTATX_FRAME_COUNT_SHIFT      12
 
-#endif /* _EMU68_VC4_H */
+#endif /* _VIDEOCORE_H */

@@ -7,17 +7,17 @@
 int compute_nearest_neighbour_kernel(volatile uint32_t *dlist_memory, ULONG offset);
 int compute_scaling_kernel(volatile uint32_t *dlist_memory, ULONG offset, ULONG b, ULONG c);
 
-struct VC4Base;
+struct VideoCoreBase;
 
 /* What the task does for the messages of the clients: they touch the HVS display lists and registers.
    The ones which change the display list wait for the vertical blank first. */
-void HVS_Init(struct VC4Base *VC4Base);
-void HVS_ShowUnicam(struct VC4Base *VC4Base);
-void HVS_SetKernel(struct VC4Base *VC4Base, ULONG kernel, ULONG b, ULONG c);
-ULONG HVS_GetScaler(struct VC4Base *VC4Base);
-void HVS_SetScaler(struct VC4Base *VC4Base, ULONG val);
-ULONG HVS_GetPhase(struct VC4Base *VC4Base);
-void HVS_SetPhase(struct VC4Base *VC4Base, ULONG val);
-void HVS_UpdateUnicamDL(struct VC4Base *VC4Base);
+void HVS_Init(struct VideoCoreBase *VideoCoreBase);
+void HVS_ShowUnicam(struct VideoCoreBase *VideoCoreBase);
+void HVS_SetKernel(struct VideoCoreBase *VideoCoreBase, ULONG kernel, ULONG b, ULONG c);
+ULONG HVS_GetScaler(struct VideoCoreBase *VideoCoreBase);
+void HVS_SetScaler(struct VideoCoreBase *VideoCoreBase, ULONG val);
+ULONG HVS_GetPhase(struct VideoCoreBase *VideoCoreBase);
+void HVS_SetPhase(struct VideoCoreBase *VideoCoreBase, ULONG val);
+void HVS_UpdateUnicamDL(struct VideoCoreBase *VideoCoreBase);
 
 #endif /* _HVS_H */

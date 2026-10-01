@@ -3,7 +3,7 @@
 
 #include <exec/types.h>
 
-void unicam_run(ULONG *address , UBYTE lanes, UBYTE datatype, ULONG width , ULONG height , UBYTE bbp,  struct VC4Base * VC4Base);
+void unicam_run(ULONG *address , UBYTE lanes, UBYTE datatype, ULONG width , ULONG height , UBYTE bbp,  struct VideoCoreBase * VideoCoreBase);
 void unicam_stop (void);
 ULONG poll_unicam(ULONG *address);
 

@@ -118,10 +118,10 @@ void WriteRegField(u32 nOffset, u32 nValue, u32 nMask) {
   WriteReg(nOffset, nBuffer);
 }
 
-void unicam_run(ULONG *address , UBYTE lanes, UBYTE datatype, ULONG width , ULONG height , UBYTE bbp, struct VC4Base * VC4Base) {
+void unicam_run(ULONG *address , UBYTE lanes, UBYTE datatype, ULONG width , ULONG height , UBYTE bbp, struct VideoCoreBase * VideoCoreBase) {
 
   //enable power domain
-  SetDomainState(DOMAIN_UNICAM1, 1, VC4Base);
+  SetDomainState(DOMAIN_UNICAM1, 1, VideoCoreBase);
 
   //enable to clock to unicam
   setup_csiclk();

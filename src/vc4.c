@@ -14,7 +14,7 @@
 /* Make sure MathIEEE will not force gcc to do weird FLOT convertions when calling lib functions */
 #define FLOAT ULONG
 
-#include "emu68-vc4.h"
+#include "videocore.h"
 #include "vc4.h"
 #include "boardinfo.h"
 
@@ -26,8 +26,8 @@ static void VC4_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD
 
 static UWORD VC4_CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD width, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc4_SysBase;
 
     if (!b)
         return 0;
@@ -62,8 +62,8 @@ static UWORD VC4_CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(
 
 static void VC4_SetDAC(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc4_SysBase;
     
     if (0)
         bug("[VC4] SetDAC\n");
@@ -74,8 +74,8 @@ static void VC4_SetDAC(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format
 
 static void VC4_SetGC(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo *mode_info, "a1"), REGARG(BOOL border, "d0"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc4_SysBase;
     struct Size dim;
     int need_switch = 0;
 
@@ -94,8 +94,8 @@ static void VC4_SetGC(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo 
     }
 
     if (need_switch) {
-        VC4Base->vc4_LastPanning.lp_Addr = NULL;
-        //init_display(dim, mode_info->Depth, &VC4Base->vc4_Framebuffer, &VC4Base->vc4_Pitch, VC4Base);
+        VideoCoreBase->vc4_LastPanning.lp_Addr = NULL;
+        //init_display(dim, mode_info->Depth, &VideoCoreBase->vc4_Framebuffer, &VideoCoreBase->vc4_Pitch, VideoCoreBase);
     }
 }
 
@@ -122,8 +122,8 @@ static const ULONG mode_table[] = {
 
 static UWORD VC4_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc4_SysBase;
     volatile ULONG *displist = (ULONG *)0xf2402000;
 
     if (0)
@@ -131,31 +131,31 @@ static UWORD VC4_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabl
         bug("[VC4] SetSwitch %ld\n", enabled);
     }
 
-    if (VC4Base->vc4_Enabled != enabled) {
-        VC4Base->vc4_Enabled = enabled;
+    if (VideoCoreBase->vc4_Enabled != enabled) {
+        VideoCoreBase->vc4_Enabled = enabled;
 
         switch(enabled) {
             case 0:
-                BlankScreen(1, VC4Base);
+                BlankScreen(1, VideoCoreBase);
                 break;
             default:
-                BlankScreen(0, VC4Base);
+                BlankScreen(0, VideoCoreBase);
                 break;
         }
     }
 
     /* If switch mode is selected */
-    if (VC4Base->vc4_SwitchMode != None)
+    if (VideoCoreBase->vc4_SwitchMode != None)
     {
         UWORD en = enabled;
 
         /* Invert the switch mode */
-        if (VC4Base->vc4_SwitchInverted)
+        if (VideoCoreBase->vc4_SwitchInverted)
         {
             en = 1 - en;
         }
 
-        switch (VC4Base->vc4_SwitchMode)
+        switch (VideoCoreBase->vc4_SwitchMode)
         {
             case CTS:
                 ((volatile struct CIA *)0xbfd000)->ciaddra |= CIAF_COMCTS;
@@ -182,12 +182,12 @@ static UWORD VC4_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabl
                 break;
            case CSI:
                 if (!en) {
-                    VC4Base->vc4_UnicamVisible = TRUE;
-                    wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(VC4Base->vc4_UnicamDL));
+                    VideoCoreBase->vc4_UnicamVisible = TRUE;
+                    wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(VideoCoreBase->vc4_UnicamDL));
                 }
                 else {
-                    VC4Base->vc4_UnicamVisible = FALSE;
-                    wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(VC4Base->vc4_ActivePlane));
+                    VideoCoreBase->vc4_UnicamVisible = FALSE;
+                    wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(VideoCoreBase->vc4_ActivePlane));
                 }
                 break;
         }
@@ -200,8 +200,8 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
                 REGARG(UWORD width, "d0"), REGARG(WORD x_offset, "d1"), REGARG(WORD y_offset, "d2"), 
                 REGARG(RGBFTYPE format, "d7"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc4_SysBase;
     int unity = 0;
     ULONG scale_x = 0;
     ULONG scale_y = 0;
@@ -225,11 +225,11 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
         bug("[VC4] SetPanning %lx %ld %ld %ld %lx\n", addr, width, x_offset, y_offset, format);
     }
 
-    if (VC4Base->vc4_LastPanning.lp_Addr != NULL && 
-        width == VC4Base->vc4_LastPanning.lp_Width &&
-        format == VC4Base->vc4_LastPanning.lp_Format)
+    if (VideoCoreBase->vc4_LastPanning.lp_Addr != NULL && 
+        width == VideoCoreBase->vc4_LastPanning.lp_Width &&
+        format == VideoCoreBase->vc4_LastPanning.lp_Format)
     {
-        if (addr == VC4Base->vc4_LastPanning.lp_Addr && x_offset == VC4Base->vc4_LastPanning.lp_X && y_offset == VC4Base->vc4_LastPanning.lp_Y) {
+        if (addr == VideoCoreBase->vc4_LastPanning.lp_Addr && x_offset == VideoCoreBase->vc4_LastPanning.lp_X && y_offset == VideoCoreBase->vc4_LastPanning.lp_Y) {
             if (0) {
                 bug("[VC4] same panning as before. Skipping now\n");
             }
@@ -239,49 +239,49 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
         offset_only = 1;
     }
 
-    VC4Base->vc4_LastPanning.lp_Addr = addr;
-    VC4Base->vc4_LastPanning.lp_Width = width;
-    VC4Base->vc4_LastPanning.lp_X = x_offset;
-    VC4Base->vc4_LastPanning.lp_Y = y_offset;
-    VC4Base->vc4_LastPanning.lp_Format = format;
+    VideoCoreBase->vc4_LastPanning.lp_Addr = addr;
+    VideoCoreBase->vc4_LastPanning.lp_Width = width;
+    VideoCoreBase->vc4_LastPanning.lp_X = x_offset;
+    VideoCoreBase->vc4_LastPanning.lp_Y = y_offset;
+    VideoCoreBase->vc4_LastPanning.lp_Format = format;
 
     if (format != RGBFB_CLUT &&
-        b->ModeInfo->Width == VC4Base->vc4_DispSize.width &&
-        b->ModeInfo->Height == VC4Base->vc4_DispSize.height)
+        b->ModeInfo->Width == VideoCoreBase->vc4_DispSize.width &&
+        b->ModeInfo->Height == VideoCoreBase->vc4_DispSize.height)
     {
         unity = 1;
         sprite_width = MAXSPRITEWIDTH;
         sprite_height = MAXSPRITEHEIGHT;
 
-        VC4Base->vc4_ScaleX = 0x10000;
-        VC4Base->vc4_ScaleY = 0x10000;
-        VC4Base->vc4_OffsetX = 0;
-        VC4Base->vc4_OffsetY = 0;
+        VideoCoreBase->vc4_ScaleX = 0x10000;
+        VideoCoreBase->vc4_ScaleY = 0x10000;
+        VideoCoreBase->vc4_OffsetX = 0;
+        VideoCoreBase->vc4_OffsetY = 0;
     }
     else
     {
         ULONG factor_y = (b->ModeInfo->Flags & GMF_DOUBLESCAN) ? 0x20000 : 0x10000;
-        scale_x = 0x10000 * b->ModeInfo->Width / VC4Base->vc4_DispSize.width;
-        scale_y = factor_y * b->ModeInfo->Height / VC4Base->vc4_DispSize.height;
+        scale_x = 0x10000 * b->ModeInfo->Width / VideoCoreBase->vc4_DispSize.width;
+        scale_y = factor_y * b->ModeInfo->Height / VideoCoreBase->vc4_DispSize.height;
 
         recip_x = 0xffffffff / scale_x;
         recip_y = 0xffffffff / scale_y;
 
         // Select larger scaling factor from X and Y, but it need to fit
-        if (((factor_y * b->ModeInfo->Height) / scale_x) > VC4Base->vc4_DispSize.height) {
+        if (((factor_y * b->ModeInfo->Height) / scale_x) > VideoCoreBase->vc4_DispSize.height) {
             scale = scale_y;
         }
         else {
             scale = scale_x;
         }
 
-        if (VC4Base->vc4_IntegerScaler)
+        if (VideoCoreBase->vc4_IntegerScaler)
         {
             scale = 0x10000 / (ULONG)(0x10000 / scale);
         }
 
-        VC4Base->vc4_ScaleX = scale;
-        VC4Base->vc4_ScaleY = (b->ModeInfo->Flags & GMF_DOUBLESCAN) ? scale >> 1 : scale;
+        VideoCoreBase->vc4_ScaleX = scale;
+        VideoCoreBase->vc4_ScaleY = (b->ModeInfo->Flags & GMF_DOUBLESCAN) ? scale >> 1 : scale;
 
         calc_width = (0x10000 * b->ModeInfo->Width) / scale;
         calc_height = (factor_y * b->ModeInfo->Height) / scale;
@@ -289,11 +289,11 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
         sprite_width = (0x10000 * MAXSPRITEWIDTH) / scale;
         sprite_height = (factor_y * MAXSPRITEHEIGHT) / scale;
 
-        offset_x = (VC4Base->vc4_DispSize.width - calc_width) >> 1;
-        offset_y = (VC4Base->vc4_DispSize.height - calc_height) >> 1;
+        offset_x = (VideoCoreBase->vc4_DispSize.width - calc_width) >> 1;
+        offset_y = (VideoCoreBase->vc4_DispSize.height - calc_height) >> 1;
 
-        VC4Base->vc4_OffsetX = offset_x;
-        VC4Base->vc4_OffsetY = offset_y;
+        VideoCoreBase->vc4_OffsetX = offset_x;
+        VideoCoreBase->vc4_OffsetY = offset_y;
 
         if (0)
             bug("[VC4] Selected scale: %08lx (X: %08lx, Y: %08lx, 1/X: %08lx, 1/Y: %08lx)\n"
@@ -305,18 +305,18 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
    
     if (unity) {
         if (offset_only) {
-            plane = VC4Base->vc4_ActivePlane;
+            plane = VideoCoreBase->vc4_ActivePlane;
             pos = BUDDY_OFFSET(plane);
             wr32le(&displist[pos + 4], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
-            if (VC4Base->vc4_SpriteVisible)
-                VC4_SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
+            if (VideoCoreBase->vc4_SpriteVisible)
+                VC4_SetSpritePosition(b, VideoCoreBase->vc4_MouseX, VideoCoreBase->vc4_MouseY, format);
         }
         else {
-            plane = BuddyAlloc(VC4Base, 8 + 18 + 4);
+            plane = BuddyAlloc(VideoCoreBase, 8 + 18 + 4);
             pos = BUDDY_OFFSET(plane);
             int cnt = pos + 1;
 
-            VC4Base->vc4_PlaneCoord = &displist[cnt];
+            VideoCoreBase->vc4_PlaneCoord = &displist[cnt];
             wr32le(&displist[cnt++], POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
             
             wr32le(&displist[cnt++], POS2_H(b->ModeInfo->Height) | POS2_W(b->ModeInfo->Width) | (1 << 30));
@@ -331,20 +331,20 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
                 | CONTROL_UNITY
                 | mode_table[format]);
 
-            VC4Base->vc4_PlaneScalerX = NULL;
-            VC4Base->vc4_PlaneScalerY = NULL;
+            VideoCoreBase->vc4_PlaneScalerX = NULL;
+            VideoCoreBase->vc4_PlaneScalerY = NULL;
 
             int mouse_pos = cnt;
             cnt = mouse_pos + 1;
 
-            VC4Base->vc4_MouseCoord = &displist[cnt];
-            wr32le(&displist[cnt++], POS0_X(offset_x + VC4Base->vc4_MouseX - x_offset) |
-                                     POS0_Y(offset_y + VC4Base->vc4_MouseY - y_offset) | POS0_ALPHA(0xff));
+            VideoCoreBase->vc4_MouseCoord = &displist[cnt];
+            wr32le(&displist[cnt++], POS0_X(offset_x + VideoCoreBase->vc4_MouseX - x_offset) |
+                                     POS0_Y(offset_y + VideoCoreBase->vc4_MouseY - y_offset) | POS0_ALPHA(0xff));
             wr32le(&displist[cnt++], POS1_H(sprite_height) | POS1_W(sprite_width));
             wr32le(&displist[cnt++], POS2_H(MAXSPRITEHEIGHT) | POS2_W(MAXSPRITEWIDTH) | (SCALER_POS2_ALPHA_MODE_PIPELINE << SCALER_POS2_ALPHA_MODE_SHIFT));
             wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
 
-            wr32le(&displist[cnt++], 0xc0000000 | (ULONG)VC4Base->vc4_SpriteShape);
+            wr32le(&displist[cnt++], 0xc0000000 | (ULONG)VideoCoreBase->vc4_SpriteShape);
             wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
 
             // Write pitch
@@ -357,14 +357,14 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
             wr32le(&displist[cnt++], 16 * b->ModeInfo->Width / 2);
 
             // Write PPF Scaling
-            wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+            wr32le(&displist[cnt++], (scale << 8) | VideoCoreBase->vc4_Scaler | VideoCoreBase->vc4_Phase);
             if (b->ModeInfo->Flags & GMF_DOUBLESCAN)
-                wr32le(&displist[cnt++], ((scale << 7) & ~0xff) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+                wr32le(&displist[cnt++], ((scale << 7) & ~0xff) | VideoCoreBase->vc4_Scaler | VideoCoreBase->vc4_Phase);
             else
-                wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+                wr32le(&displist[cnt++], (scale << 8) | VideoCoreBase->vc4_Scaler | VideoCoreBase->vc4_Phase);
             wr32le(&displist[cnt++], 0); // Scratch written by HVS
 
-            ULONG unity_kernel = BUDDY_OFFSET(VC4Base->vc4_UnityKernel);
+            ULONG unity_kernel = BUDDY_OFFSET(VideoCoreBase->vc4_UnityKernel);
 
             // Write scaling kernel offset in dlist
             wr32le(&displist[cnt++], unity_kernel);
@@ -384,26 +384,26 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
             wr32le(&displist[clut_off], 0xc0000000 | (cnt << 2));
 
             wr32le(&displist[cnt++], 0x00000000);
-            VC4Base->vc4_MousePalette = &displist[cnt];
-            wr32le(&displist[cnt++], VC4Base->vc4_SpriteColors[0]);
-            wr32le(&displist[cnt++], VC4Base->vc4_SpriteColors[1]);
-            wr32le(&displist[cnt++], VC4Base->vc4_SpriteColors[2]);
+            VideoCoreBase->vc4_MousePalette = &displist[cnt];
+            wr32le(&displist[cnt++], VideoCoreBase->vc4_SpriteColors[0]);
+            wr32le(&displist[cnt++], VideoCoreBase->vc4_SpriteColors[1]);
+            wr32le(&displist[cnt++], VideoCoreBase->vc4_SpriteColors[2]);
         }
     } else {
         if (offset_only) {
-            plane = VC4Base->vc4_ActivePlane;
+            plane = VideoCoreBase->vc4_ActivePlane;
             pos = BUDDY_OFFSET(plane);
             wr32le(&displist[pos + 5], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
-            if (VC4Base->vc4_SpriteVisible)
-                VC4_SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
+            if (VideoCoreBase->vc4_SpriteVisible)
+                VC4_SetSpritePosition(b, VideoCoreBase->vc4_MouseX, VideoCoreBase->vc4_MouseY, format);
         }
         else 
         {
-            plane = BuddyAlloc(VC4Base, 2*18 + 4);
+            plane = BuddyAlloc(VideoCoreBase, 2*18 + 4);
             pos = BUDDY_OFFSET(plane);
             int cnt = pos + 1;
 
-            VC4Base->vc4_PlaneCoord = &displist[cnt];
+            VideoCoreBase->vc4_PlaneCoord = &displist[cnt];
             wr32le(&displist[cnt++], POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
             wr32le(&displist[cnt++], POS1_H(calc_height) | POS1_W(calc_width));
             wr32le(&displist[cnt++], POS2_H(b->ModeInfo->Height) | POS2_W(b->ModeInfo->Width) | (SCALER_POS2_ALPHA_MODE_FIXED << SCALER_POS2_ALPHA_MODE_SHIFT));
@@ -424,20 +424,20 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
             wr32le(&displist[cnt++], 0);
 
             // Write PPF Scaling
-            VC4Base->vc4_PlaneScalerX = &displist[cnt];
-            VC4Base->vc4_PlaneScalerY = &displist[cnt+1];
+            VideoCoreBase->vc4_PlaneScalerX = &displist[cnt];
+            VideoCoreBase->vc4_PlaneScalerY = &displist[cnt+1];
 
-            wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+            wr32le(&displist[cnt++], (scale << 8) | VideoCoreBase->vc4_Scaler | VideoCoreBase->vc4_Phase);
             if (b->ModeInfo->Flags & GMF_DOUBLESCAN)
-                wr32le(&displist[cnt++], ((scale << 7) & ~0xff) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+                wr32le(&displist[cnt++], ((scale << 7) & ~0xff) | VideoCoreBase->vc4_Scaler | VideoCoreBase->vc4_Phase);
             else
-                wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+                wr32le(&displist[cnt++], (scale << 8) | VideoCoreBase->vc4_Scaler | VideoCoreBase->vc4_Phase);
             wr32le(&displist[cnt++], 0); // Scratch written by HVS
 
-            ULONG kernel_start = BUDDY_OFFSET(VC4Base->vc4_ScalingKernel);
+            ULONG kernel_start = BUDDY_OFFSET(VideoCoreBase->vc4_ScalingKernel);
 
             // Write scaling kernel offset in dlist
-            VC4Base->vc4_Kernel = &displist[cnt];
+            VideoCoreBase->vc4_Kernel = &displist[cnt];
             wr32le(&displist[cnt++], kernel_start);
             wr32le(&displist[cnt++], kernel_start);
             wr32le(&displist[cnt++], kernel_start);
@@ -453,14 +453,14 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
             int mouse_pos = cnt;
             cnt = mouse_pos + 1;
 
-            VC4Base->vc4_MouseCoord = &displist[cnt];
-            wr32le(&displist[cnt++], POS0_X(offset_x + 0x10000 * (VC4Base->vc4_MouseX - x_offset) / VC4Base->vc4_ScaleX) |
-                                     POS0_Y(offset_y + 0x10000 * (VC4Base->vc4_MouseY - y_offset) / VC4Base->vc4_ScaleY) | POS0_ALPHA(0xff));
+            VideoCoreBase->vc4_MouseCoord = &displist[cnt];
+            wr32le(&displist[cnt++], POS0_X(offset_x + 0x10000 * (VideoCoreBase->vc4_MouseX - x_offset) / VideoCoreBase->vc4_ScaleX) |
+                                     POS0_Y(offset_y + 0x10000 * (VideoCoreBase->vc4_MouseY - y_offset) / VideoCoreBase->vc4_ScaleY) | POS0_ALPHA(0xff));
             wr32le(&displist[cnt++], POS1_H(sprite_height) | POS1_W(sprite_width));
             wr32le(&displist[cnt++], POS2_H(MAXSPRITEHEIGHT) | POS2_W(MAXSPRITEWIDTH) | (SCALER_POS2_ALPHA_MODE_PIPELINE << SCALER_POS2_ALPHA_MODE_SHIFT));
             wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
 
-            wr32le(&displist[cnt++], 0xc0000000 | (ULONG)VC4Base->vc4_SpriteShape);
+            wr32le(&displist[cnt++], 0xc0000000 | (ULONG)VideoCoreBase->vc4_SpriteShape);
             wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
 
             // Write pitch
@@ -473,11 +473,11 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
             wr32le(&displist[cnt++], 16 * b->ModeInfo->Width / 2);
 
             // Write PPF Scaling
-            wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+            wr32le(&displist[cnt++], (scale << 8) | VideoCoreBase->vc4_Scaler | VideoCoreBase->vc4_Phase);
             if (b->ModeInfo->Flags & GMF_DOUBLESCAN)
-                wr32le(&displist[cnt++], ((scale << 7) & ~0xff) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+                wr32le(&displist[cnt++], ((scale << 7) & ~0xff) | VideoCoreBase->vc4_Scaler | VideoCoreBase->vc4_Phase);
             else
-                wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+                wr32le(&displist[cnt++], (scale << 8) | VideoCoreBase->vc4_Scaler | VideoCoreBase->vc4_Phase);
             wr32le(&displist[cnt++], 0); // Scratch written by HVS
 
             // Write scaling kernel offset in dlist
@@ -498,10 +498,10 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
             wr32le(&displist[clut_off], 0xc0000000 | (cnt << 2));
 
             wr32le(&displist[cnt++], 0x00000000);
-            VC4Base->vc4_MousePalette = &displist[cnt];
-            wr32le(&displist[cnt++], VC4Base->vc4_SpriteColors[0]);
-            wr32le(&displist[cnt++], VC4Base->vc4_SpriteColors[1]);
-            wr32le(&displist[cnt++], VC4Base->vc4_SpriteColors[2]);
+            VideoCoreBase->vc4_MousePalette = &displist[cnt];
+            wr32le(&displist[cnt++], VideoCoreBase->vc4_SpriteColors[0]);
+            wr32le(&displist[cnt++], VideoCoreBase->vc4_SpriteColors[1]);
+            wr32le(&displist[cnt++], VideoCoreBase->vc4_SpriteColors[2]);
 #if 0
             for (int i=pos; i < cnt; i++) {
                 ULONG args[] = {
@@ -514,24 +514,24 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
         }
     }
 
-    if (plane != VC4Base->vc4_ActivePlane)
+    if (plane != VideoCoreBase->vc4_ActivePlane)
     {
         volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
 
         // Wait for vertical blank before updating the display list
-        do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VC4Base->vc4_DispSize.height);
+        do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VideoCoreBase->vc4_DispSize.height);
 
         wr32le((volatile uint32_t *)0xf2400024, pos);
-        BuddyFree(VC4Base, VC4Base->vc4_ActivePlane);
-        VC4Base->vc4_ActivePlane = plane;
+        BuddyFree(VideoCoreBase, VideoCoreBase->vc4_ActivePlane);
+        VideoCoreBase->vc4_ActivePlane = plane;
     }
 }
 
 
 static void VC4_SetColorArray(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD start, "d0"), REGARG(UWORD num, "d1"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc4_SysBase;
     volatile uint32_t *displist = (uint32_t *)0xf2402000;
 
     // Sets the color components of X color components for 8-bit paletted display modes.
@@ -554,8 +554,8 @@ static void VC4_SetColorArray(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD st
 
 static APTR VC4_CalculateMemory(REGARG(struct BoardInfo *b, "a0"), REGARG(unsigned long addr, "a1"), REGARG(RGBFTYPE format, "d7"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc4_SysBase;
 
     if (0)
     {
@@ -591,8 +591,8 @@ enum fake_rgbftypes {
 
 static ULONG VC4_GetCompatibleFormats(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc4_SysBase;
     if (0)
     {
         bug("[VC4] GetCompatibleFormats %lx\n", format);
@@ -604,17 +604,17 @@ static ULONG VC4_GetCompatibleFormats(REGARG(struct BoardInfo *b, "a0"), REGARG(
 //static int display_enabled = 0;
 static UWORD VC4_SetDisplay(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc4_SysBase;
 #if 0
     if (0)
     {
         bug("[VC4] SetDisplay %ld\n", enabled);
     }
     if (enabled) {
-        BlankScreen(0, VC4Base);
+        BlankScreen(0, VideoCoreBase);
     } else {
-        BlankScreen(1, VC4Base);
+        BlankScreen(1, VideoCoreBase);
     }
 #endif
     return 1;
@@ -623,15 +623,15 @@ static UWORD VC4_SetDisplay(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enab
 static LONG VC4_ResolvePixelClock(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo *mode_info, "a1"),
                        REGARG(ULONG pixel_clock, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
-    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    struct ExecBase *SysBase = VideoCoreBase->vc4_SysBase;
     
     if (0)
     {
         bug("[VC4] ResolvePixelClock %lx %ld %lx\n", mode_info, pixel_clock, format);
     }
 
-    ULONG clock = mode_info->HorTotal * mode_info->VerTotal * VC4Base->vc4_VertFreq;
+    ULONG clock = mode_info->HorTotal * mode_info->VerTotal * VideoCoreBase->vc4_VertFreq;
 
     if (b->ModeInfo->Flags & GMF_DOUBLESCAN)
         clock <<= 1;
@@ -646,9 +646,9 @@ static LONG VC4_ResolvePixelClock(REGARG(struct BoardInfo *b, "a0"), REGARG(stru
 static ULONG VC4_GetPixelClock(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo *mode_info, "a1"),
                     REGARG(ULONG index, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
     
-    ULONG clock = mode_info->HorTotal * mode_info->VerTotal * VC4Base->vc4_VertFreq;
+    ULONG clock = mode_info->HorTotal * mode_info->VerTotal * VideoCoreBase->vc4_VertFreq;
 
     if (b->ModeInfo->Flags & GMF_DOUBLESCAN)
         clock <<= 1;
@@ -679,32 +679,32 @@ static void VC4_SetReadPlane(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE pla
 
 static void VC4_SetSprite(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
 
-    VC4Base->vc4_SpriteVisible = enable;
+    VideoCoreBase->vc4_SpriteVisible = enable;
 
     if (enable) {
         LONG _x;
         LONG _y;
 
-        if (VC4Base->vc4_ScaleX)
-            _x = 0x10000 * VC4Base->vc4_MouseX / VC4Base->vc4_ScaleX;
+        if (VideoCoreBase->vc4_ScaleX)
+            _x = 0x10000 * VideoCoreBase->vc4_MouseX / VideoCoreBase->vc4_ScaleX;
         else
-            _x = VC4Base->vc4_MouseX;
+            _x = VideoCoreBase->vc4_MouseX;
 
-        if (VC4Base->vc4_ScaleY)
-            _y = 0x10000 * VC4Base->vc4_MouseY / VC4Base->vc4_ScaleX;
+        if (VideoCoreBase->vc4_ScaleY)
+            _y = 0x10000 * VideoCoreBase->vc4_MouseY / VideoCoreBase->vc4_ScaleX;
         else
-            _y = VC4Base->vc4_MouseY;
+            _y = VideoCoreBase->vc4_MouseY;
 
-        if (VC4Base->vc4_MouseCoord) {
-            wr32le(&VC4Base->vc4_MouseCoord[0], POS0_X(_x) | POS0_Y(_y) | POS0_ALPHA(0xff));
+        if (VideoCoreBase->vc4_MouseCoord) {
+            wr32le(&VideoCoreBase->vc4_MouseCoord[0], POS0_X(_x) | POS0_Y(_y) | POS0_ALPHA(0xff));
         }
     }
     else
     {
-        if (VC4Base->vc4_MouseCoord) {
-            wr32le(&VC4Base->vc4_MouseCoord[0], POS0_X(-1) | POS0_Y(-1) | POS0_ALPHA(0xff));
+        if (VideoCoreBase->vc4_MouseCoord) {
+            wr32le(&VideoCoreBase->vc4_MouseCoord[0], POS0_X(-1) | POS0_Y(-1) | POS0_ALPHA(0xff));
         }
     }
 }
@@ -712,48 +712,48 @@ static void VC4_SetSprite(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable,
 static void VC4_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0"),
                        REGARG(WORD y, "d1"), REGARG(RGBFTYPE format, "d7"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
 
 /*
     x = b->MouseX - b->XOffset;
     y = b->MouseY - b->YOffset;
 */
 
-    VC4Base->vc4_MouseX = x;
-    VC4Base->vc4_MouseY = y;
+    VideoCoreBase->vc4_MouseX = x;
+    VideoCoreBase->vc4_MouseY = y;
 
-    x -= VC4Base->vc4_LastPanning.lp_X;
-    y -= VC4Base->vc4_LastPanning.lp_Y;
+    x -= VideoCoreBase->vc4_LastPanning.lp_X;
+    y -= VideoCoreBase->vc4_LastPanning.lp_Y;
 
     LONG _x;
     LONG _y;
 
-    if (VC4Base->vc4_ScaleX)
-        _x = 0x10000 * x / VC4Base->vc4_ScaleX;
+    if (VideoCoreBase->vc4_ScaleX)
+        _x = 0x10000 * x / VideoCoreBase->vc4_ScaleX;
     else
         _x = x;
 
-    if (VC4Base->vc4_ScaleY)
-        _y = 0x10000 * y / VC4Base->vc4_ScaleY;
+    if (VideoCoreBase->vc4_ScaleY)
+        _y = 0x10000 * y / VideoCoreBase->vc4_ScaleY;
     else
         _y = y;
 
-    _x += VC4Base->vc4_OffsetX;
-    _y += VC4Base->vc4_OffsetY;
+    _x += VideoCoreBase->vc4_OffsetX;
+    _y += VideoCoreBase->vc4_OffsetY;
 
-    if (VC4Base->vc4_MouseCoord) {   
-        wr32le(&VC4Base->vc4_MouseCoord[0], POS0_X(_x) | POS0_Y(_y) | POS0_ALPHA(0xff));
+    if (VideoCoreBase->vc4_MouseCoord) {   
+        wr32le(&VideoCoreBase->vc4_MouseCoord[0], POS0_X(_x) | POS0_Y(_y) | POS0_ALPHA(0xff));
     }
 }
 
 
 static void VC4_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
     struct ExecBase *SysBase = *(struct ExecBase **)4;
 
     for (int i=0; i < MAXSPRITEWIDTH * MAXSPRITEHEIGHT; i++)
-        VC4Base->vc4_SpriteShape[i] = 0;
+        VideoCoreBase->vc4_SpriteShape[i] = 0;
 
     if ((b->Flags & (BIF_HIRESSPRITE | BIF_BIGSPRITE)) == 0)
     {
@@ -768,7 +768,7 @@ static void VC4_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYP
                 UBYTE pix = 0;
                 if (p0 & mask) pix |= 1;
                 if (p1 & mask) pix |= 2;
-                VC4Base->vc4_SpriteShape[y * MAXSPRITEWIDTH + x] = pix;
+                VideoCoreBase->vc4_SpriteShape[y * MAXSPRITEWIDTH + x] = pix;
                 mask = mask >> 1;
             }
         }
@@ -785,10 +785,10 @@ static void VC4_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYP
                 UBYTE pix = 0;
                 if (p0 & mask) pix |= 1;
                 if (p1 & mask) pix |= 2;
-                VC4Base->vc4_SpriteShape[2 * y * MAXSPRITEWIDTH + 2*x] = pix;
-                VC4Base->vc4_SpriteShape[2 * y * MAXSPRITEWIDTH + 2*x + 1] = pix;
-                VC4Base->vc4_SpriteShape[(2 * y + 1) * MAXSPRITEWIDTH + 2*x] = pix;
-                VC4Base->vc4_SpriteShape[(2 * y + 1) * MAXSPRITEWIDTH + 2*x + 1] = pix;
+                VideoCoreBase->vc4_SpriteShape[2 * y * MAXSPRITEWIDTH + 2*x] = pix;
+                VideoCoreBase->vc4_SpriteShape[2 * y * MAXSPRITEWIDTH + 2*x + 1] = pix;
+                VideoCoreBase->vc4_SpriteShape[(2 * y + 1) * MAXSPRITEWIDTH + 2*x] = pix;
+                VideoCoreBase->vc4_SpriteShape[(2 * y + 1) * MAXSPRITEWIDTH + 2*x + 1] = pix;
                 mask = mask >> 1;
             }
         }
@@ -805,24 +805,24 @@ static void VC4_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYP
                 UBYTE pix = 0;
                 if (p0 & mask) pix |= 1;
                 if (p1 & mask) pix |= 2;
-                VC4Base->vc4_SpriteShape[y * MAXSPRITEWIDTH + x] = pix;
+                VideoCoreBase->vc4_SpriteShape[y * MAXSPRITEWIDTH + x] = pix;
                 mask = mask >> 1;
             }
         }
     }
 
-    CacheClearE(VC4Base->vc4_SpriteShape, MAXSPRITEHEIGHT * MAXSPRITEWIDTH, CACRF_ClearD);
+    CacheClearE(VideoCoreBase->vc4_SpriteShape, MAXSPRITEHEIGHT * MAXSPRITEWIDTH, CACRF_ClearD);
 }
 
 static void VC4_SetSpriteColor(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE idx, "d0"),
                     REGARG(UBYTE R, "d1"), REGARG(UBYTE G, "d2"), REGARG(UBYTE B, "d3"),
                     REGARG(RGBFTYPE format, "d7"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
     if (idx < 3) {
-        VC4Base->vc4_SpriteColors[idx] = (VC4Base->vc4_SpriteAlpha << 24) | (R << 16) | (G << 8) | B;
-        if (VC4Base->vc4_MousePalette) {
-            wr32le(&VC4Base->vc4_MousePalette[idx], VC4Base->vc4_SpriteColors[idx]);
+        VideoCoreBase->vc4_SpriteColors[idx] = (VideoCoreBase->vc4_SpriteAlpha << 24) | (R << 16) | (G << 8) | B;
+        if (VideoCoreBase->vc4_MousePalette) {
+            wr32le(&VideoCoreBase->vc4_MousePalette[idx], VideoCoreBase->vc4_SpriteColors[idx]);
         }
     }
 }
@@ -837,17 +837,17 @@ static ULONG VC4_GetVBeamPos(REGARG(struct BoardInfo *b, "a0"))
 
 static void VC4_WaitVerticalSync(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL toggle, "d0"))
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
     volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
 
     // Wait until current vbeampos is lower than the one obtained above
-    do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VC4Base->vc4_DispSize.height);
+    do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VideoCoreBase->vc4_DispSize.height);
 }
 
 /* Unicam DisplayList */
-static void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
+static void VC4_ConstructUnicamDL(struct VideoCoreBase *VideoCoreBase)
 {
-    APTR UnicamBase = VC4Base->vc4_UnicamBase;
+    APTR UnicamBase = VideoCoreBase->vc4_UnicamBase;
     int unity = 0;
     ULONG scale_x = 0;
     ULONG scale_y = 0;
@@ -888,21 +888,21 @@ static void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
 
     volatile uint32_t *displist = (uint32_t *)0xf2402000;
 
-    if (crop_w == VC4Base->vc4_DispSize.width &&
-        crop_h == VC4Base->vc4_DispSize.height && aspect == 1000)
+    if (crop_w == VideoCoreBase->vc4_DispSize.width &&
+        crop_h == VideoCoreBase->vc4_DispSize.height && aspect == 1000)
     {
         unity = 1;
     }
     else
     {
-        scale_x = 0x10000 * ((crop_w * aspect) / 1000) / VC4Base->vc4_DispSize.width;
-        scale_y = 0x10000 * crop_h / VC4Base->vc4_DispSize.height;
+        scale_x = 0x10000 * ((crop_w * aspect) / 1000) / VideoCoreBase->vc4_DispSize.width;
+        scale_y = 0x10000 * crop_h / VideoCoreBase->vc4_DispSize.height;
 
         recip_x = 0xffffffff / scale_x;
         recip_y = 0xffffffff / scale_y;
 
         // Select larger scaling factor from X and Y, but it need to fit
-        if (((0x10000 * crop_h) / scale_x) > VC4Base->vc4_DispSize.height) {
+        if (((0x10000 * crop_h) / scale_x) > VideoCoreBase->vc4_DispSize.height) {
             scale = scale_y;
         }
         else {
@@ -920,11 +920,11 @@ static void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
         calc_width = (0x10000 * crop_w) / scale_x;
         calc_height = (0x10000 * crop_h) / scale_y;
 
-        offset_x = (VC4Base->vc4_DispSize.width - calc_width) >> 1;
-        offset_y = (VC4Base->vc4_DispSize.height - calc_height) >> 1;
+        offset_x = (VideoCoreBase->vc4_DispSize.width - calc_width) >> 1;
+        offset_y = (VideoCoreBase->vc4_DispSize.height - calc_height) >> 1;
     }
 
-    ULONG startAddress = (ULONG)VC4Base->vc4_Unicambuffer;
+    ULONG startAddress = (ULONG)VideoCoreBase->vc4_Unicambuffer;
     startAddress += crop_x * bpp;
     startAddress += crop_y * fullWidth * bpp;
 
@@ -933,7 +933,7 @@ static void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
         /* Unity scaling is simple, reserve less space for display list */
         cnt -= 8;
 
-        VC4Base->vc4_UnicamDL = cnt;
+        VideoCoreBase->vc4_UnicamDL = cnt;
 
         /* Set control reg */
         ULONG control =
@@ -967,7 +967,7 @@ static void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
         
         if (config & UNICAMF_SMOOTHING) cnt -= 16;
 
-        VC4Base->vc4_UnicamDL = cnt;
+        VideoCoreBase->vc4_UnicamDL = cnt;
 
         /* Set control reg */
         ULONG control = 
@@ -997,16 +997,16 @@ static void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
         wr32le(&displist[cnt++], 0);
 
         /* Set PPF Scaler */
-        wr32le(&displist[cnt++], (scale_x << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
-        wr32le(&displist[cnt++], (scale_y << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+        wr32le(&displist[cnt++], (scale_x << 8) | VideoCoreBase->vc4_Scaler | VideoCoreBase->vc4_Phase);
+        wr32le(&displist[cnt++], (scale_y << 8) | VideoCoreBase->vc4_Scaler | VideoCoreBase->vc4_Phase);
         wr32le(&displist[cnt++], 0); // Scratch written by HVS
 
         ULONG unicam_scaling = -1;
 
         if (config & UNICAMF_SMOOTHING)
         {
-            VC4Base->vc4_UnicamKernel = BuddyAlloc(VC4Base, 11);
-            unicam_scaling = BUDDY_OFFSET(VC4Base->vc4_UnicamKernel);
+            VideoCoreBase->vc4_UnicamKernel = BuddyAlloc(VideoCoreBase, 11);
+            unicam_scaling = BUDDY_OFFSET(VideoCoreBase->vc4_UnicamKernel);
 
             wr32le(&displist[cnt++], unicam_scaling);
             wr32le(&displist[cnt++], unicam_scaling);
@@ -1015,7 +1015,7 @@ static void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
         }
         else
         {
-            ULONG unity_kernel = BUDDY_OFFSET(VC4Base->vc4_UnityKernel);
+            ULONG unity_kernel = BUDDY_OFFSET(VideoCoreBase->vc4_UnityKernel);
 
             wr32le(&displist[cnt++], unity_kernel);
             wr32le(&displist[cnt++], unity_kernel);
@@ -1029,7 +1029,7 @@ static void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
         /* Put scaling kernel here... */
         if (config & UNICAMF_SMOOTHING)
         {
-            struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+            struct ExecBase *SysBase = VideoCoreBase->vc4_SysBase;
             struct Library *MathIeeeSingBasBase = OpenLibrary("mathieeesingbas.library", 0);
 
             ULONG float_kernel_b = IEEESPDiv(
@@ -1052,10 +1052,10 @@ static void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
 /* Fills the BoardInfo with the functions of VideoCore 4 */
 void VC4_InitChip(struct BoardInfo *bi)
 {
-    struct VC4Base *VC4Base = (struct VC4Base *)bi->CardBase;
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)bi->CardBase;
 
-    VC4Base->vc4_DisplayList = (APTR)0xf2402000;
-    VC4Base->vc4_ConstructUnicamDL = VC4_ConstructUnicamDL;
+    VideoCoreBase->vc4_DisplayList = (APTR)0xf2402000;
+    VideoCoreBase->vc4_ConstructUnicamDL = VC4_ConstructUnicamDL;
 
     // Basic P96 functions needed for "dumb frame buffer" operation
     bi->SetSwitch = (void *)VC4_SetSwitch;

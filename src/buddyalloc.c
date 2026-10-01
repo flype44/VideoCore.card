@@ -2,7 +2,7 @@
 #include <proto/exec.h>
 
 #include "buddyalloc.h"
-#include "emu68-vc4.h"
+#include "videocore.h"
 
 /*
  * Size of the display list which the buddy allocator manages. Currently, due to
@@ -108,7 +108,7 @@ static inline int find_first_set(const ULONG *bitmap, int max_bits) {
     return -1;
 }
 
-void BuddyInit(struct VC4Base *base) {
+void BuddyInit(struct VideoCoreBase *base) {
     struct ExecBase *SysBase = base->vc4_SysBase;
     BuddyAllocator *alloc = AllocMem(sizeof(BuddyAllocator), MEMF_CLEAR);
 
@@ -132,7 +132,7 @@ void BuddyInit(struct VC4Base *base) {
     }
 }
 
-ULONG BuddyAlloc(struct VC4Base *base, UWORD size) {
+ULONG BuddyAlloc(struct VideoCoreBase *base, UWORD size) {
     BuddyAllocator *alloc = (BuddyAllocator *)base->vc4_BuddyAllocator;
     
     int order = order_for_size(size);
@@ -168,7 +168,7 @@ ULONG BuddyAlloc(struct VC4Base *base, UWORD size) {
     return 0xffffffff;
 }
 
-void BuddyFree(struct VC4Base *base, ULONG id) {
+void BuddyFree(struct VideoCoreBase *base, ULONG id) {
     BuddyAllocator *alloc = (BuddyAllocator *)base->vc4_BuddyAllocator;
     UWORD offset = BUDDY_OFFSET(id);
     UWORD size = BUDDY_SIZE(id);
