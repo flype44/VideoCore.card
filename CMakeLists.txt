@@ -22,6 +22,7 @@ add_executable(VideoCore.card
     src/unicam.c
     src/buddyalloc.c
     src/hvs.c
+    src/chip.c
     src/dpms.c
     src/task.c
 )
