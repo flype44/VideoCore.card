@@ -18,7 +18,6 @@
 #define FLOAT ULONG
 
 #include "videocore.h"
-#include "vc4.h"
 #include "buddyalloc.h"
 #include "hvs.h"
 
