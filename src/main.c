@@ -67,6 +67,27 @@ int _strcmp(const char *s1, const char *s2)
     return (*(const unsigned char *)s1 - *(const unsigned char *)(s2 - 1));
 }
 
+/* Display power on or off, the same for every family */
+static void SetDPMSLevel(REGARG(struct BoardInfo *b, "a0"), REGARG(ULONG level, "d0"))
+{
+    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
+    if (0)
+    {
+        bug("[VC4] SetDPMSLevel(%ld)\n", level);
+    }
+
+    /* display power on or off */
+    BOOL ret = SetDisplayPower(VC4Base->vc4_DisplayID, 
+        (level == DPMS_OFF) ? 0 : 1, VC4Base);
+
+    /* display power debug */
+    if (0)
+    {
+        bug("[VC4] SetDisplayPower(display_id: %ld, state: %ld): %ld\n", 
+            VC4Base->vc4_DisplayID, (level == DPMS_OFF) ? 0 : 1, ret);
+    }
+}
+
 static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VC4Base *VC4Base, "a6"))
 {
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
