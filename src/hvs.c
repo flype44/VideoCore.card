@@ -8,6 +8,9 @@
 
 #include <proto/exec.h>
 #include <proto/mathieeesingbas.h>
+#include <proto/unicam.h>
+
+#include <resources/unicam.h>
 
 #include <common/compiler.h>
 
@@ -15,6 +18,8 @@
 #define FLOAT ULONG
 
 #include "emu68-vc4.h"
+#include "vc4.h"
+#include "buddyalloc.h"
 #include "hvs.h"
 
 static int mitchell_netravali(ULONG x, ULONG b, ULONG c, struct Library *MathIeeeSingBasBase)
@@ -212,4 +217,132 @@ int compute_nearest_neighbour_kernel(volatile uint32_t *dlist_memory, ULONG offs
     }
 
     return offset;
+}
+
+/* Wait for the vertical blank before the display list is updated */
+static void HVS_WaitVBlank(struct VC4Base *VC4Base)
+{
+    volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
+
+    do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VC4Base->vc4_DispSize.height);
+}
+
+void HVS_SetKernel(struct VC4Base *VC4Base, ULONG kernel, ULONG b, ULONG c)
+{
+    ULONG new_scaling_kernel = BuddyAlloc(VC4Base, 11);
+    ULONG kernel_start = BUDDY_OFFSET(new_scaling_kernel);
+
+    if (kernel)
+        compute_scaling_kernel(VC4Base->vc4_DisplayList, kernel_start, b, c);
+    else
+        compute_nearest_neighbour_kernel(VC4Base->vc4_DisplayList, kernel_start);
+
+    if (VC4Base->vc4_Kernel)
+    {
+        HVS_WaitVBlank(VC4Base);
+
+        wr32le(&VC4Base->vc4_Kernel[0], kernel_start);
+        wr32le(&VC4Base->vc4_Kernel[1], kernel_start);
+        wr32le(&VC4Base->vc4_Kernel[2], kernel_start);
+        wr32le(&VC4Base->vc4_Kernel[3], kernel_start);
+
+        wr32le(&VC4Base->vc4_MouseCoord[12], kernel_start);
+        wr32le(&VC4Base->vc4_MouseCoord[13], kernel_start);
+        wr32le(&VC4Base->vc4_MouseCoord[14], kernel_start);
+        wr32le(&VC4Base->vc4_MouseCoord[15], kernel_start);
+    }
+
+    BuddyFree(VC4Base, VC4Base->vc4_ScalingKernel);
+    VC4Base->vc4_ScalingKernel = new_scaling_kernel;
+}
+
+ULONG HVS_GetScaler(struct VC4Base *VC4Base)
+{
+    if (VC4Base->vc4_PlaneScalerX)
+        return (LE32(*VC4Base->vc4_PlaneScalerX) >> 30) & 3;
+
+    return 0;
+}
+
+void HVS_SetScaler(struct VC4Base *VC4Base, ULONG scaler)
+{
+    HVS_WaitVBlank(VC4Base);
+
+    if (VC4Base->vc4_PlaneScalerX) {
+        ULONG val = LE32(*VC4Base->vc4_PlaneScalerX);
+        val = (val & 0x3fffffff) | (scaler << 30);
+        wr32le(VC4Base->vc4_PlaneScalerX, val);
+    }
+    if (VC4Base->vc4_PlaneScalerY) {
+        ULONG val = LE32(*VC4Base->vc4_PlaneScalerY);
+        val = (val & 0x3fffffff) | (scaler << 30);
+        wr32le(VC4Base->vc4_PlaneScalerY, val);
+    }
+
+    if (VC4Base->vc4_ScaleX != 0x10000) {
+        ULONG val = LE32(VC4Base->vc4_MouseCoord[9]);
+        val = (val & 0x3fffffff) | (scaler << 30);
+        wr32le(&VC4Base->vc4_MouseCoord[9], val);
+
+        val = LE32(VC4Base->vc4_MouseCoord[10]);
+        val = (val & 0x3fffffff) | (scaler << 30);
+        wr32le(&VC4Base->vc4_MouseCoord[10], val);
+    }
+}
+
+ULONG HVS_GetPhase(struct VC4Base *VC4Base)
+{
+    if (VC4Base->vc4_PlaneScalerX)
+        return LE32(*VC4Base->vc4_PlaneScalerX) & 0xff;
+
+    return 0;
+}
+
+void HVS_SetPhase(struct VC4Base *VC4Base, ULONG phase)
+{
+    HVS_WaitVBlank(VC4Base);
+
+    if (VC4Base->vc4_PlaneScalerX) {
+        ULONG val = LE32(*VC4Base->vc4_PlaneScalerX);
+        val = (val & 0xffffff00) | (phase & 0xff);
+        wr32le(VC4Base->vc4_PlaneScalerX, val);
+    }
+    if (VC4Base->vc4_PlaneScalerY) {
+        ULONG val = LE32(*VC4Base->vc4_PlaneScalerY);
+        val = (val & 0xffffff00) | (phase & 0xff);
+        wr32le(VC4Base->vc4_PlaneScalerY, val);
+    }
+
+    if (VC4Base->vc4_ScaleX != 0x10000) {
+        ULONG val = LE32(VC4Base->vc4_MouseCoord[9]);
+        val = (val & 0xffffff00) | (phase & 0xff);
+        wr32le(&VC4Base->vc4_MouseCoord[9], val);
+
+        val = LE32(VC4Base->vc4_MouseCoord[10]);
+        val = (val & 0xffffff00) | (phase & 0xff);
+        wr32le(&VC4Base->vc4_MouseCoord[10], val);
+    }
+}
+
+void HVS_UpdateUnicamDL(struct VC4Base *VC4Base)
+{
+    /* Check if unicam.resource is there and the version is right */
+    APTR UnicamBase = VC4Base->vc4_UnicamBase;
+    struct Library *ub = UnicamBase;
+
+    if (ub != NULL && (ub->lib_Version > 1 || (ub->lib_Version == 1 && ub->lib_Revision >= 2))) {
+        ULONG sz = (7 + UnicamConstructDL(NULL, 0)) & ~7;
+        ULONG idx = BuddyAlloc(VC4Base, sz);
+
+        /* Alloc slot for unicam displaylist and initialize it by unicam itself */
+        UnicamConstructDL(VC4Base->vc4_DisplayList, BUDDY_OFFSET(idx));
+
+        if (VC4Base->vc4_UnicamVisible) {
+            wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(idx));
+        }
+
+        /* Set the new pointer to unicam display list */
+        BuddyFree(VC4Base, VC4Base->vc4_UnicamDL);
+        VC4Base->vc4_UnicamDL = idx;
+    }
 }

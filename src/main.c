@@ -242,7 +242,6 @@ static void vc4_Task()
     struct VC4Base *VC4Base = me->tc_UserData;
     struct MsgPort *port = CreateMsgPort();
     ULONG sigset;
-    volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
 
     port->mp_Node.ln_Name = "VideoCore";
     AddPort(port);
@@ -259,135 +258,35 @@ static void vc4_Task()
             {
                 if (msg->mn_Length == sizeof(struct VC4Msg)) {
                     struct VC4Msg *vmsg = (struct VC4Msg *)msg;
-                    ULONG new_scaling_kernel;
-                    ULONG kernel_start;
-
                     switch (vmsg->cmd) {
                         case VCMD_SET_KERNEL:
-                            new_scaling_kernel = BuddyAlloc(VC4Base, 11);
-                            kernel_start = BUDDY_OFFSET(new_scaling_kernel);
-
-                            if (vmsg->SetKernel.kernel)
-                                compute_scaling_kernel(VC4Base->vc4_DisplayList, kernel_start, vmsg->SetKernel.b, vmsg->SetKernel.c);
-                            else
-                                compute_nearest_neighbour_kernel(VC4Base->vc4_DisplayList, kernel_start);
-                            if (VC4Base->vc4_Kernel)
-                            {
-                                // Wait for vertical blank before updating the display list
-                                do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VC4Base->vc4_DispSize.height);
-
-                                wr32le(&VC4Base->vc4_Kernel[0], kernel_start);
-                                wr32le(&VC4Base->vc4_Kernel[1], kernel_start);
-                                wr32le(&VC4Base->vc4_Kernel[2], kernel_start);
-                                wr32le(&VC4Base->vc4_Kernel[3], kernel_start);
-
-                                wr32le(&VC4Base->vc4_MouseCoord[12], kernel_start);
-                                wr32le(&VC4Base->vc4_MouseCoord[13], kernel_start);
-                                wr32le(&VC4Base->vc4_MouseCoord[14], kernel_start);
-                                wr32le(&VC4Base->vc4_MouseCoord[15], kernel_start);
-                            }
-                            BuddyFree(VC4Base, VC4Base->vc4_ScalingKernel);
-                            VC4Base->vc4_ScalingKernel = new_scaling_kernel;
-
+                            HVS_SetKernel(VC4Base, vmsg->SetKernel.kernel, vmsg->SetKernel.b, vmsg->SetKernel.c);
                             break;
-                        
+
                         case VCMD_GET_KERNEL:
                             vmsg->GetKernel.kernel = VC4Base->vc4_UseKernel;
                             vmsg->GetKernel.b = VC4Base->vc4_Kernel_B;
                             vmsg->GetKernel.c = VC4Base->vc4_Kernel_C;
                             break;
-                        
+
                         case VCMD_GET_SCALER:
-                            if (VC4Base->vc4_PlaneScalerX) {
-                                ULONG val = LE32(*VC4Base->vc4_PlaneScalerX);
-                                vmsg->GetScaler.val = (val >> 30) & 3;
-                            }
-                            else
-                                vmsg->GetScaler.val = 0;
+                            vmsg->GetScaler.val = HVS_GetScaler(VC4Base);
                             break;
 
                         case VCMD_SET_SCALER:
-                            // Wait for vertical blank before updating the display list
-                            do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VC4Base->vc4_DispSize.height);
-
-                            if (VC4Base->vc4_PlaneScalerX) {
-                                ULONG val = LE32(*VC4Base->vc4_PlaneScalerX);
-                                val = (val & 0x3fffffff) | (vmsg->SetScaler.val << 30);
-                                wr32le(VC4Base->vc4_PlaneScalerX, val);
-                            }
-                            if (VC4Base->vc4_PlaneScalerY) {
-                                ULONG val = LE32(*VC4Base->vc4_PlaneScalerY);
-                                val = (val & 0x3fffffff) | (vmsg->SetScaler.val << 30);
-                                wr32le(VC4Base->vc4_PlaneScalerY, val);
-                            }
-
-                            if (VC4Base->vc4_ScaleX != 0x10000) {
-                                ULONG val = LE32(VC4Base->vc4_MouseCoord[9]);
-                                val = (val & 0x3fffffff) | (vmsg->SetScaler.val << 30);
-                                wr32le(&VC4Base->vc4_MouseCoord[9], val);
-
-                                val = LE32(VC4Base->vc4_MouseCoord[10]);
-                                val = (val & 0x3fffffff) | (vmsg->SetScaler.val << 30);
-                                wr32le(&VC4Base->vc4_MouseCoord[10], val);
-                            }
+                            HVS_SetScaler(VC4Base, vmsg->SetScaler.val);
                             break;
-                        
+
                         case VCMD_GET_PHASE:
-                            if (VC4Base->vc4_PlaneScalerX) {
-                                ULONG val = LE32(*VC4Base->vc4_PlaneScalerX);
-                                vmsg->GetPhase.val = val & 0xff;
-                            }
-                            else
-                                vmsg->GetPhase.val = 0;
+                            vmsg->GetPhase.val = HVS_GetPhase(VC4Base);
                             break;
 
                         case VCMD_SET_PHASE:
-                            // Wait for vertical blank before updating the display list
-                            do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VC4Base->vc4_DispSize.height);
-
-                            if (VC4Base->vc4_PlaneScalerX) {
-                                ULONG val = LE32(*VC4Base->vc4_PlaneScalerX);
-                                val = (val & 0xffffff00) | (vmsg->SetPhase.val & 0xff);
-                                wr32le(VC4Base->vc4_PlaneScalerX, val);
-                            }
-                            if (VC4Base->vc4_PlaneScalerY) {
-                                ULONG val = LE32(*VC4Base->vc4_PlaneScalerY);
-                                val = (val & 0xffffff00) | (vmsg->SetPhase.val & 0xff);
-                                wr32le(VC4Base->vc4_PlaneScalerY, val);
-                            }
-
-                            if (VC4Base->vc4_ScaleX != 0x10000) {
-                                ULONG val = LE32(VC4Base->vc4_MouseCoord[9]);
-                                val = (val & 0xffffff00) | (vmsg->SetPhase.val & 0xff);
-                                wr32le(&VC4Base->vc4_MouseCoord[9], val);
-
-                                val = LE32(VC4Base->vc4_MouseCoord[10]);
-                                val = (val & 0xffffff00) | (vmsg->SetPhase.val & 0xff);
-                                wr32le(&VC4Base->vc4_MouseCoord[10], val);
-                            }
+                            HVS_SetPhase(VC4Base, vmsg->SetPhase.val);
                             break;
-                        
+
                         case VCMD_UPDATE_UNICAM_DL:
-                            {
-                                /* Check if unicam.resource is there and the version is right */
-                                APTR UnicamBase = VC4Base->vc4_UnicamBase;
-                                struct Library *ub = UnicamBase;
-                                if (ub != NULL && (ub->lib_Version > 1 || (ub->lib_Version == 1 && ub->lib_Revision >= 2))) {
-                                    ULONG sz = (7 + UnicamConstructDL(NULL, 0)) & ~7;
-                                    ULONG idx = BuddyAlloc(VC4Base, sz);
-                                    
-                                    /* Alloc slot for unicam displaylist and initialize it by unicam itself */
-                                    UnicamConstructDL(VC4Base->vc4_DisplayList, BUDDY_OFFSET(idx));
-
-                                    if (VC4Base->vc4_UnicamVisible) {
-                                        wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(idx));
-                                    }
-
-                                    /* Set the new pointer to unicam display list */
-                                    BuddyFree(VC4Base, VC4Base->vc4_UnicamDL);
-                                    VC4Base->vc4_UnicamDL = idx;
-                                }
-                            }
+                            HVS_UpdateUnicamDL(VC4Base);
                             break;
                     }
                 }
