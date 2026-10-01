@@ -38,9 +38,6 @@ struct VideoCoreBase {
     struct CardBase         vc_LibNode;
     BPTR                    vc_SegList;
     struct ExecBase *       vc_SysBase;
-    struct ExpansionBase *  vc_ExpansionBase;
-    struct DOSBase *        vc_DOSBase;
-    struct IntuitionBase *  vc_IntuitionBase;
     APTR                    vc_DeviceTreeBase;
     APTR                    vc_UnicamBase;
     APTR                    vc_MailboxBase;

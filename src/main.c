@@ -102,28 +102,6 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreB
         return 0;
     }
 
-    /* Open DOS, Expansion and Intuition, but I don't know yet why... */
-    VideoCoreBase->vc_ExpansionBase = (struct ExpansionBase *)OpenLibrary("expansion.library", 0);
-    
-    if (VideoCoreBase->vc_ExpansionBase == NULL) {
-        return 0;
-    }
-
-    VideoCoreBase->vc_IntuitionBase = (struct IntuitionBase *)OpenLibrary("intuition.library", 0);
-    
-    if (VideoCoreBase->vc_IntuitionBase == NULL) {
-        CloseLibrary((struct Library *)VideoCoreBase->vc_ExpansionBase);
-        return 0;
-    }
-
-    VideoCoreBase->vc_DOSBase = (struct DOSBase *)OpenLibrary("dos.library", 0);
-
-    if (VideoCoreBase->vc_DOSBase == NULL) {
-        CloseLibrary((struct Library *)VideoCoreBase->vc_IntuitionBase);
-        CloseLibrary((struct Library *)VideoCoreBase->vc_ExpansionBase);
-        return 0;
-    }
-
     /* Find out base address of framebuffer and video memory size */
     GetVCMemory(&VideoCoreBase->vc_MemBase, &VideoCoreBase->vc_MemSize, VideoCoreBase);
 
@@ -139,10 +117,6 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreB
 
         if (reg == NULL)
         {
-            CloseLibrary((struct Library *)VideoCoreBase->vc_DOSBase);
-            CloseLibrary((struct Library *)VideoCoreBase->vc_IntuitionBase);
-            CloseLibrary((struct Library *)VideoCoreBase->vc_ExpansionBase);
-            
             return 0;
         }
 
@@ -489,14 +463,6 @@ static ULONG ExpungeLib(REGARG(struct VideoCoreBase *VideoCoreBase, "a6"))
     {
         /* Remove library from Exec's list */
         Remove(&VideoCoreBase->vc_LibNode.LibBase.lib_Node);
-
-        /* Close all eventually opened libraries */
-        if (VideoCoreBase->vc_ExpansionBase != NULL)
-            CloseLibrary((struct Library *)VideoCoreBase->vc_ExpansionBase);
-        if (VideoCoreBase->vc_DOSBase != NULL)
-            CloseLibrary((struct Library *)VideoCoreBase->vc_DOSBase);
-        if (VideoCoreBase->vc_IntuitionBase != NULL)
-            CloseLibrary((struct Library *)VideoCoreBase->vc_IntuitionBase);
 
         /* Save seglist */
         segList = VideoCoreBase->vc_SegList;
