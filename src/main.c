@@ -32,6 +32,7 @@
 #include "vc6.h"
 #include "unicam.h"
 #include "buddyalloc.h"
+#include "hvs.h"
 
 int __attribute__((no_reorder)) _start()
 {

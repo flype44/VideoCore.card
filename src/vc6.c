@@ -18,6 +18,7 @@
 #include "boardinfo.h"
 #include "mbox.h"
 #include "buddyalloc.h"
+#include "hvs.h"
 
 static void VC6_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0"),
                                   REGARG(WORD y, "d1"), REGARG(RGBFTYPE format, "d7"));
