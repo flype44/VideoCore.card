@@ -583,30 +583,6 @@ static APTR VC6_CalculateMemory(REGARG(struct BoardInfo *b, "a0"), REGARG(unsign
 }
 
 
-enum fake_rgbftypes {
-    RGBF_8BPP_CLUT,
-    RGBF_24BPP_RGB,
-    RGBF_24BPP_BGR,
-    RGBF_16BPP_RGB565_PC,
-    RGBF_16BPP_RGB555_PC,
-	RGBF_32BPP_ARGB,
-    RGBF_32BPP_ABGR,
-	RGBF_32BPP_RGBA,
-    RGBF_32BPP_BGRA,
-    RGBF_16BPP_RGB565,
-    RGBF_16BPP_RGB555,
-    RGBF_16BPP_BGR565_PC,
-    RGBF_16BPP_BGR555_PC,
-    RGBF_YUV_422_0,  // (Actually 4:2:0?) Just a duplicate of RGBF_YUV_422?
-    RGBF_YUV_411,    // No, these are 4:2:0
-    RGBF_YUV_411_PC, // No, these are 4:2:0
-    RGBF_YUV_422,
-    RGBF_YUV_422_PC,
-    RGBF_YUV_422_PLANAR,
-    RGBF_YUV_422_PLANAR_PC,
-};
-#define BIP(a) (1 << a)
-
 static ULONG VC6_GetCompatibleFormats(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
@@ -615,7 +591,6 @@ static ULONG VC6_GetCompatibleFormats(REGARG(struct BoardInfo *b, "a0"), REGARG(
     {
         bug("[VC4] GetCompatibleFormats %lx\n", format);
     }
-    //return BIP(RGBF_8BPP_CLUT) | BIP(RGBF_24BPP_RGB) | BIP(RGBF_24BPP_BGR) | BIP(RGBF_32BPP_ARGB) | BIP(RGBF_32BPP_ABGR) | BIP(RGBF_32BPP_RGBA) | BIP(RGBF_32BPP_BGRA);
     return 0xFFFFFFFF;
 }
 
