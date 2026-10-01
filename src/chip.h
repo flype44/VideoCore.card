@@ -11,6 +11,10 @@
 struct ChipFamily {
     const char *Name;                   /* VC4 or VC6 */
     APTR        DisplayList;            /* the display list memory of the HVS */
+    ULONG       UnityPlaneWords;        /* words of a native screen: main plane, sprite plane, palette */
+    ULONG       ScaledPlaneWords;       /* words of a scaled screen: scaler and kernel words in both planes */
+    UWORD       UnityAddressWord;       /* index of the pixel address in the main plane of a native screen */
+    UWORD       ScaledAddressWord;      /* the same in the main plane of a scaled screen */
     void      (*ConstructUnicamDL)(struct VideoCoreBase *VideoCoreBase);
     APTR        SetPanning;
     APTR        SetSprite;

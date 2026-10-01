@@ -157,12 +157,12 @@ static void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
         if (offset_only) {
             plane = VideoCoreBase->vc_ActivePlane;
             pos = BUDDY_OFFSET(plane);
-            wr32le(&displist[pos + 5], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
+            wr32le(&displist[pos + VideoCoreBase->vc_Family->UnityAddressWord], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             if (VideoCoreBase->vc_SpriteVisible)
                 VC6_SetSpritePosition(b, VideoCoreBase->vc_MouseX, VideoCoreBase->vc_MouseY, format);
         }
         else {
-            plane = BuddyAlloc(VideoCoreBase, 8 + 20 + 4 + 8);
+            plane = BuddyAlloc(VideoCoreBase, VideoCoreBase->vc_Family->UnityPlaneWords);
             pos = BUDDY_OFFSET(plane);
             int cnt = pos + 1;
 
@@ -258,13 +258,13 @@ static void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
         if (offset_only) {
             plane = VideoCoreBase->vc_ActivePlane;
             pos = BUDDY_OFFSET(plane);
-            wr32le(&displist[pos + 6], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
+            wr32le(&displist[pos + VideoCoreBase->vc_Family->ScaledAddressWord], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             if (VideoCoreBase->vc_SpriteVisible)
                 VC6_SetSpritePosition(b, VideoCoreBase->vc_MouseX, VideoCoreBase->vc_MouseY, format);
         }
         else 
         {
-            plane = BuddyAlloc(VideoCoreBase, 2*20 + 4 + 8);
+            plane = BuddyAlloc(VideoCoreBase, VideoCoreBase->vc_Family->ScaledPlaneWords);
             pos = BUDDY_OFFSET(plane);
             int cnt = pos + 1;
 
@@ -680,6 +680,10 @@ static void VC6_ConstructUnicamDL(struct VideoCoreBase *VideoCoreBase)
 const struct ChipFamily VC6_Family = {
     "VC6",
     (APTR)VC6_DISPLAY_LIST,
+    8 + 20 + 4 + 8,
+    2*20 + 4 + 8,
+    5,
+    6,
     VC6_ConstructUnicamDL,
     VC6_SetPanning,
     VC6_SetSprite,

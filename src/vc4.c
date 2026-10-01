@@ -157,12 +157,12 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
         if (offset_only) {
             plane = VideoCoreBase->vc_ActivePlane;
             pos = BUDDY_OFFSET(plane);
-            wr32le(&displist[pos + 4], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
+            wr32le(&displist[pos + VideoCoreBase->vc_Family->UnityAddressWord], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             if (VideoCoreBase->vc_SpriteVisible)
                 VC4_SetSpritePosition(b, VideoCoreBase->vc_MouseX, VideoCoreBase->vc_MouseY, format);
         }
         else {
-            plane = BuddyAlloc(VideoCoreBase, 8 + 18 + 4);
+            plane = BuddyAlloc(VideoCoreBase, VideoCoreBase->vc_Family->UnityPlaneWords);
             pos = BUDDY_OFFSET(plane);
             int cnt = pos + 1;
 
@@ -243,13 +243,13 @@ static void VC4_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr
         if (offset_only) {
             plane = VideoCoreBase->vc_ActivePlane;
             pos = BUDDY_OFFSET(plane);
-            wr32le(&displist[pos + 5], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
+            wr32le(&displist[pos + VideoCoreBase->vc_Family->ScaledAddressWord], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             if (VideoCoreBase->vc_SpriteVisible)
                 VC4_SetSpritePosition(b, VideoCoreBase->vc_MouseX, VideoCoreBase->vc_MouseY, format);
         }
         else 
         {
-            plane = BuddyAlloc(VideoCoreBase, 2*18 + 4);
+            plane = BuddyAlloc(VideoCoreBase, VideoCoreBase->vc_Family->ScaledPlaneWords);
             pos = BUDDY_OFFSET(plane);
             int cnt = pos + 1;
 
@@ -660,6 +660,10 @@ static void VC4_ConstructUnicamDL(struct VideoCoreBase *VideoCoreBase)
 const struct ChipFamily VC4_Family = {
     "VC4",
     (APTR)VC4_DISPLAY_LIST,
+    8 + 18 + 4,
+    2*18 + 4,
+    4,
+    5,
     VC4_ConstructUnicamDL,
     VC4_SetPanning,
     VC4_SetSprite,
