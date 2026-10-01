@@ -1,5 +1,5 @@
-#ifndef _SUPPORT_H
-#define _SUPPORT_H
+#ifndef _UTILS_H
+#define _UTILS_H
 
 #include <exec/tasks.h>
 #include <utility/tagitem.h>
@@ -17,9 +17,13 @@ enum {
     TASKTAG_ARG4,
 };
 
+/* Small C library functions, the driver is built without libc */
+int _strlen(CONST_STRPTR str);
+int _strcmp(const char *s1, const char *s2);
+
 struct Task * NewCreateTaskTags(struct TagItem *tags);
 
 #define NewCreateTask(...)          \
     ({ struct TagItem tags[] = { __VA_ARGS__ }; struct Task *t = NewCreateTaskTags(tags); t; })
 
-#endif /* _SUPPORT_H */
+#endif /* _UTILS_H */

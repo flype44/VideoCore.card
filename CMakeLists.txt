@@ -16,7 +16,7 @@ add_executable(VideoCore.card
     src/mbox.c
     src/vc4.c
     src/vc6.c
-    src/support.c
+    src/utils.c
     src/debug.c
     src/end.c
     src/unicam.c

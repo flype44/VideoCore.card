@@ -27,7 +27,7 @@
 #include "videocore.h"
 #include "mbox.h"
 #include "vpu/block_copy.h"
-#include "support.h"
+#include "utils.h"
 #include "vc4.h"
 #include "vc6.h"
 #include "unicam.h"
@@ -59,14 +59,6 @@ const struct Resident RomTag __attribute__((used)) = {
 
 const char deviceName[] = CARD_NAME;
 const char deviceIdString[] = VERSION_STRING;
-
-int _strcmp(const char *s1, const char *s2)
-{
-    while (*s1 == *s2++)
-        if (*s1++ == '\0')
-            return (0);
-    return (*(const unsigned char *)s1 - *(const unsigned char *)(s2 - 1));
-}
 
 static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreBase *VideoCoreBase, "a6"))
 {
