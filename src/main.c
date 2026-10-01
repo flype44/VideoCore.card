@@ -290,7 +290,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     VideoCoreBase->vc_IntegerScaler = 0;
     VideoCoreBase->vc_UseDPMS = FALSE;
 
-    BOOL vblank = TRUE;     /* VC_VBLANK=No: no vertical blank interrupt */
+    BOOL vblank = TRUE;     /* Interrupt=No (ToolType of Picasso96): no vertical blank interrupt, polling instead */
 
     APTR UnicamBase = VideoCoreBase->vc_UnicamBase;
 
@@ -305,7 +305,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     {
         CONST_STRPTR value;
 
-        if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC_VBLANK")) != NULL && *value != 0 && !ToolTypeIsOn(IconBase, value))
+        if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "INTERRUPT")) != NULL && *value != 0 && !ToolTypeIsOn(IconBase, value))
             vblank = FALSE;
         if ((value = FindToolType((CONST_STRPTR *)ToolTypes, "VC4_LEGACY_ID")) != NULL && (*value == 0 || ToolTypeIsOn(IconBase, value)))
         {
