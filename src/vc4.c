@@ -1261,3 +1261,71 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
         }
     }
 }
+
+/* Fills the BoardInfo with the functions of VideoCore 4 */
+void VC4_InitChip(struct BoardInfo *bi)
+{
+    // Basic P96 functions needed for "dumb frame buffer" operation
+    bi->SetSwitch = (void *)SetSwitch;
+    bi->SetColorArray = (void *)SetColorArray;
+    bi->SetDAC = (void *)SetDAC;
+    bi->SetGC = (void *)SetGC;
+    bi->SetPanning = (void *)SetPanning;
+    bi->CalculateBytesPerRow = (void *)CalculateBytesPerRow;
+    bi->CalculateMemory = (void *)CalculateMemory;
+    bi->GetCompatibleFormats = (void *)GetCompatibleFormats;
+    bi->SetDisplay = (void *)SetDisplay;
+
+    bi->ResolvePixelClock = (void *)ResolvePixelClock;
+    bi->GetPixelClock = (void *)GetPixelClock;
+    bi->SetClock = (void *)SetClock;
+
+    bi->SetMemoryMode = (void *)SetMemoryMode;
+    bi->SetWriteMask = (void *)SetWriteMask;
+    bi->SetClearMask = (void *)SetClearMask;
+    bi->SetReadPlane = (void *)SetReadPlane;
+
+    bi->WaitVerticalSync = (void *)WaitVerticalSync;
+
+    // Additional functions for "blitter" acceleration and vblank handling
+    //bi->SetInterrupt = (void *)NULL;
+
+    //bi->WaitBlitter = (void *)NULL;
+
+    //bi->ScrollPlanar = (void *)NULL;
+    //bi->UpdatePlanar = (void *)NULL;
+
+    //bi->BlitPlanar2Chunky = (void *)BlitPlanar2Chunky;
+    //bi->BlitPlanar2Direct = (void *)BlitPlanar2Direct;
+
+    //bi->FillRect = (void *)FillRect;
+    //bi->InvertRect = (void *)InvertRect;
+    //bi->BlitRect = (void *)BlitRect;
+    //bi->BlitTemplate = (void *)BlitTemplate;
+    //bi->BlitPattern = (void *)BlitPattern;
+    //bi->DrawLine = (void *)DrawLine;
+    //bi->BlitRectNoMaskComplete = (void *)BlitRectNoMaskComplete;
+    //bi->EnableSoftSprite = (void *)NULL;
+
+    //bi->AllocCardMemAbs = (void *)NULL;
+    //bi->SetSplitPosition = (void *)NULL;
+    //bi->ReInitMemory = (void *)NULL;
+    //bi->WriteYUVRect = (void *)NULL;
+    //bi->GetVSyncState = (void *)GetVSyncState;
+    bi->GetVBeamPos = (void *)GetVBeamPos;
+    //bi->SetDPMSLevel = (void *)NULL;
+    //bi->ResetChip = (void *)NULL;
+    //bi->GetFeatureAttrs = (void *)NULL;
+    //bi->AllocBitMap = (void *)NULL;
+    //bi->FreeBitMap = (void *)NULL;
+    //bi->GetBitMapAttr = (void *)NULL;
+
+    bi->SetSprite = (void *)SetSprite;
+    bi->SetSpritePosition = (void *)SetSpritePosition;
+    bi->SetSpriteImage = (void *)SetSpriteImage;
+    bi->SetSpriteColor = (void *)SetSpriteColor;
+
+    //bi->CreateFeature = (void *)NULL;
+    //bi->SetFeatureAttrs = (void *)NULL;
+    //bi->DeleteFeature = (void *)NULL;
+}

@@ -1066,3 +1066,71 @@ void VC6_ConstructUnicamDL(struct VC4Base *VC4Base)
         }
     }
 }
+
+/* Fills the BoardInfo with the functions of VideoCore 6 */
+void VC6_InitChip(struct BoardInfo *bi)
+{
+// Basic P96 functions needed for "dumb frame buffer" operation
+    bi->SetSwitch = (void *)VC6_SetSwitch;
+    bi->SetColorArray = (void *)VC6_SetColorArray;
+    bi->SetDAC = (void *)VC6_SetDAC;
+    bi->SetGC = (void *)VC6_SetGC;
+    bi->SetPanning = (void *)VC6_SetPanning;
+    bi->CalculateBytesPerRow = (void *)VC6_CalculateBytesPerRow;
+    bi->CalculateMemory = (void *)VC6_CalculateMemory;
+    bi->GetCompatibleFormats = (void *)VC6_GetCompatibleFormats;
+    bi->SetDisplay = (void *)VC6_SetDisplay;
+
+    bi->ResolvePixelClock = (void *)VC6_ResolvePixelClock;
+    bi->GetPixelClock = (void *)VC6_GetPixelClock;
+    bi->SetClock = (void *)VC6_SetClock;
+
+    bi->SetMemoryMode = (void *)VC6_SetMemoryMode;
+    bi->SetWriteMask = (void *)VC6_SetWriteMask;
+    bi->SetClearMask = (void *)VC6_SetClearMask;
+    bi->SetReadPlane = (void *)VC6_SetReadPlane;
+
+    bi->WaitVerticalSync = (void *)VC6_WaitVerticalSync;
+
+    // Additional functions for "blitter" acceleration and vblank handling
+    //bi->SetInterrupt = (void *)NULL;
+
+    //bi->WaitBlitter = (void *)NULL;
+
+    //bi->ScrollPlanar = (void *)NULL;
+    //bi->UpdatePlanar = (void *)NULL;
+
+    //bi->BlitPlanar2Chunky = (void *)BlitPlanar2Chunky;
+    //bi->BlitPlanar2Direct = (void *)BlitPlanar2Direct;
+
+    //bi->FillRect = (void *)FillRect;
+    //bi->InvertRect = (void *)InvertRect;
+    //bi->BlitRect = (void *)BlitRect;
+    //bi->BlitTemplate = (void *)BlitTemplate;
+    //bi->BlitPattern = (void *)BlitPattern;
+    //bi->DrawLine = (void *)DrawLine;
+    //bi->BlitRectNoMaskComplete = (void *)BlitRectNoMaskComplete;
+    //bi->EnableSoftSprite = (void *)NULL;
+
+    //bi->AllocCardMemAbs = (void *)NULL;
+    //bi->SetSplitPosition = (void *)NULL;
+    //bi->ReInitMemory = (void *)NULL;
+    //bi->WriteYUVRect = (void *)NULL;
+    //bi->GetVSyncState = (void *)GetVSyncState;
+    bi->GetVBeamPos = (void *)VC6_GetVBeamPos;
+    //bi->SetDPMSLevel = (void *)NULL;
+    //bi->ResetChip = (void *)NULL;
+    //bi->GetFeatureAttrs = (void *)NULL;
+    //bi->AllocBitMap = (void *)NULL;
+    //bi->FreeBitMap = (void *)NULL;
+    //bi->GetBitMapAttr = (void *)NULL;
+
+    bi->SetSprite = (void *)VC6_SetSprite;
+    bi->SetSpritePosition = (void *)VC6_SetSpritePosition;
+    bi->SetSpriteImage = (void *)VC6_SetSpriteImage;
+    bi->SetSpriteColor = (void *)VC6_SetSpriteColor;
+
+    //bi->CreateFeature = (void *)NULL;
+    //bi->SetFeatureAttrs = (void *)NULL;
+    //bi->DeleteFeature = (void *)NULL;
+}

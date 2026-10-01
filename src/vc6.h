@@ -81,4 +81,6 @@ int compute_scaling_kernel(volatile uint32_t *dlist_memory, ULONG offset, ULONG 
 
 void VC6_ConstructUnicamDL(struct VC4Base *VC4Base);
 
+void VC6_InitChip(struct BoardInfo *bi);
+
 #endif /* _VC6_H */
