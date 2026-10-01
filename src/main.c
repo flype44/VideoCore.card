@@ -68,27 +68,6 @@ int _strcmp(const char *s1, const char *s2)
     return (*(const unsigned char *)s1 - *(const unsigned char *)(s2 - 1));
 }
 
-/* Display power on or off, the same for every family */
-static void SetDPMSLevel(REGARG(struct BoardInfo *b, "a0"), REGARG(ULONG level, "d0"))
-{
-    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
-    if (0)
-    {
-        bug("[VC4] SetDPMSLevel(%ld)\n", level);
-    }
-
-    /* display power on or off */
-    BOOL ret = SetDisplayPower(VC4Base->vc4_DisplayID, 
-        (level == DPMS_OFF) ? 0 : 1, VC4Base);
-
-    /* display power debug */
-    if (0)
-    {
-        bug("[VC4] SetDisplayPower(display_id: %ld, state: %ld): %ld\n", 
-            VC4Base->vc4_DisplayID, (level == DPMS_OFF) ? 0 : 1, ret);
-    }
-}
-
 static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VC4Base *VC4Base, "a6"))
 {
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -234,6 +213,7 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VC4Base *V
 }
 
 #include "messages.h"
+#include "dpms.h"
 
 static void vc4_Task()
 {
@@ -601,36 +581,8 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         }
     }
 
-    /* initialize the Picasso96 "DPMS" support */
-    if (VC4Base->vc4_UseDPMS)
-    {
-        /* obtain the RPi primary display id, or -1 if not supported by the RPi firmware.
-         * 
-         * +---------+----------------+------------+
-         * | display | display_number | display_id |
-         * +---------+----------------+------------+
-         * | hdmi-0  |            0UL |         2L | primary hdmi
-         * | hdmi-1  |            1UL |         7L | secondary hdmi
-         * +---------+----------------+------------+
-         */
-        
-        /* obtain the primary hdmi display num */
-        VC4Base->vc4_DisplayNum = 0UL;
-        
-        /* obtain the primary hdmi display id */
-        VC4Base->vc4_DisplayID = GetDisplayID(
-            VC4Base->vc4_DisplayNum, VC4Base);
-        
-        /* attach the Picasso96 method if the display id is valid */
-        if (VC4Base->vc4_DisplayID >= 0) {
-            bi->SetDPMSLevel = (void *)SetDPMSLevel;
-
-            /* the firmware keeps the display power state from one boot to the next:
-             * a display which DPMS has switched off before a reboot would stay off,
-             * so switch it on */
-            SetDisplayPower(VC4Base->vc4_DisplayID, 1, VC4Base);
-        }
-    }
+    /* The display power control of the firmware, for Picasso96 DPMS */
+    DPMS_Init(bi, VC4Base);
 
     /* Scaling kernels and the display list of Unicam */
     HVS_Init(VC4Base);
