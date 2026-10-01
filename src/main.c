@@ -431,28 +431,14 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         else if (_strcmp(tt, "VC4_SWITCH_INVERT") == '=')
         {
             /* Invert the default behavior for selected RGB/HDMI switch mode */
-            const char *s = &tt[18];
-            if (s[0] == 'Y' && s[1] == 'E' && s[2] == 'S' && s[3] == 0)
-            {
+            if (YesOrTrue(&tt[18]))
                 VideoCoreBase->vc_SwitchInverted = 1;
-            }
-            else if (s[0] == '1' && s[1] == 0)
-            {
-                VideoCoreBase->vc_SwitchInverted = 1;
-            }
         }
         else if (_strcmp(tt, "VC4_INTEGER_SCALING") == '=')
         {
-            /* Invert the default behavior for selected RGB/HDMI switch mode */
-            const char *s = &tt[20];
-            if (s[0] == 'Y' && s[1] == 'E' && s[2] == 'S' && s[3] == 0)
-            {
+            /* Scale by integer factors only */
+            if (YesOrTrue(&tt[20]))
                 VideoCoreBase->vc_IntegerScaler = 1;
-            }
-            else if (s[0] == '1' && s[1] == 0)
-            {
-                VideoCoreBase->vc_IntegerScaler = 1;
-            }
         }
         else if (_strcmp(tt, "VC4_DPMS") == 0)
         {

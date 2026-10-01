@@ -23,6 +23,12 @@ int _strcmp(const char *s1, const char *s2)
     return (*(const unsigned char *)s1 - *(const unsigned char *)(s2 - 1));
 }
 
+/* The value of a ToolType which switches something on: YES, TRUE or 1 */
+BOOL YesOrTrue(CONST_STRPTR value)
+{
+    return _strcmp(value, "YES") == 0 || _strcmp(value, "TRUE") == 0 || _strcmp(value, "1") == 0;
+}
+
 /* The decimal number at the start of the string, the digits end at the first other character */
 ULONG _atoul(CONST_STRPTR str)
 {

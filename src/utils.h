@@ -22,6 +22,9 @@ int _strlen(CONST_STRPTR str);
 int _strcmp(const char *s1, const char *s2);
 ULONG _atoul(CONST_STRPTR str);
 
+/* ToolType values */
+BOOL YesOrTrue(CONST_STRPTR value);
+
 struct Task * NewCreateTaskTags(struct TagItem *tags);
 
 #define NewCreateTask(...)          \
