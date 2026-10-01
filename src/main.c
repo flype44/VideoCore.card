@@ -943,6 +943,11 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         /* attach the Picasso96 method if the display id is valid */
         if (VC4Base->vc4_DisplayID >= 0) {
             bi->SetDPMSLevel = (void *)SetDPMSLevel;
+
+            /* the firmware keeps the display power state from one boot to the next:
+             * a display which DPMS has switched off before a reboot would stay off,
+             * so switch it on */
+            set_display_power(VC4Base->vc4_DisplayID, 1, VC4Base);
         }
     }
 
