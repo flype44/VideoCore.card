@@ -347,10 +347,25 @@ void HVS_UpdateUnicamDL(struct VideoCoreBase *VideoCoreBase)
     }
 }
 
+/* The firmware leaves a display list for the channel 0 of the HVS in the memory which follows ours (0x334 on a
+   Pi 4), with scaled planes which use the line memory like ours do. The HVS keeps running it at every frame and
+   it shows as small coloured blocks at the left of a scaled screen. The drivers have always ended it, by accident:
+   their palette was written over it. Do it on purpose, and only for a list in the words of the former palette. */
+static void HVS_EndForeignList(struct VideoCoreBase *VideoCoreBase)
+{
+    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_Family->DisplayList;
+    ULONG list0 = LE32(*(volatile uint32_t *)(HVS_BASE + SCALER_DISPLIST0));
+
+    if (list0 >= 0x300 && list0 < HVS_PALETTE)
+        wr32le(&displist[list0], 0x80000000);
+}
+
 /* Builds the scaling kernels and the display list of Unicam in the display list memory */
 void HVS_Init(struct VideoCoreBase *VideoCoreBase)
 {
     APTR UnicamBase = VideoCoreBase->vc_UnicamBase;
+
+    HVS_EndForeignList(VideoCoreBase);
 
     VideoCoreBase->vc_ScalingKernel = BuddyAlloc(VideoCoreBase, 11);
     ULONG kernel_start = BUDDY_OFFSET(VideoCoreBase->vc_ScalingKernel);
