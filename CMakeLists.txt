@@ -36,4 +36,19 @@ target_link_options(VideoCore.card PRIVATE -ffreestanding -nostdlib -nostartfile
 target_link_libraries(VideoCore.card devicetree mailbox amiga unicam)
 target_compile_definitions(VideoCore.card PUBLIC CARD_NAME="VideoCore.card")
 
+# vcmeter, a demonstrator of the memory window of the driver (a Picasso96 PiP), only on demand: make vcmeter
+# It needs the include files of the Picasso96 SDK for programs, which are not in this repository:
+#   cmake -DP96_INCLUDE=<path>/Picasso96DevelopPublic/Include <source>
+set(P96_INCLUDE "" CACHE PATH "The Include directory of the Picasso96 SDK for programs, for vcmeter")
+if(P96_INCLUDE)
+    add_executable(vcmeter EXCLUDE_FROM_ALL
+        tools/vcmeter/start.c
+        tools/vcmeter/main.c
+    )
+    target_include_directories(vcmeter PRIVATE ${P96_INCLUDE})
+    target_compile_options(vcmeter PRIVATE -Os -m68040 -fomit-frame-pointer -Wall -Wno-pointer-sign)
+    target_link_options(vcmeter PRIVATE -ffreestanding -nostdlib -nostartfiles -Wl,-e,__start)
+    target_link_libraries(vcmeter mailbox amiga)
+endif()
+
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/VideoCore.card DESTINATION VideoCore/)
