@@ -20,6 +20,8 @@
 
 #include "videocore.h"
 #include "boardinfo.h"
+#include "hvs.h"
+#include "chip.h"
 #include "vblank.h"
 
 /* Pixelvalve 2 drives HDMI0 on the BCM2711, /soc/pixelvalve@7e20a000 */
@@ -132,7 +134,24 @@ static ULONG VBlank_Interrupt(REGARG(struct BoardInfo *bi, "a1"))
     {
         vblank->SpritePending = FALSE;
 
-        if (VideoCoreBase->vc_MouseCoord != NULL)
+        if (vblank->Pair)
+        {
+            /* Write the position in the copy the HVS does not show and show that one: the HVS never reads a
+               display list in which the position changes. Unicam shows a list of its own: write both copies. */
+            volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_Family->DisplayList;
+            UBYTE spare = 1 - vblank->Shown;
+
+            wr32le(&displist[vblank->List[spare] + vblank->PosWord], vblank->SpriteWord);
+
+            if (!VideoCoreBase->vc_UnicamVisible)
+            {
+                wr32le((volatile uint32_t *)(HVS_BASE + SCALER_DISPLIST1), vblank->List[spare]);
+                vblank->Shown = spare;
+            }
+            else
+                wr32le(&displist[vblank->List[1 - spare] + vblank->PosWord], vblank->SpriteWord);
+        }
+        else if (VideoCoreBase->vc_MouseCoord != NULL)
             wr32le(&VideoCoreBase->vc_MouseCoord[0], vblank->SpriteWord);
     }
 
