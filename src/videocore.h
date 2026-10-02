@@ -80,6 +80,9 @@ struct VideoCoreBase {
     APTR                    vc_VPU_CopyBlock;
 
     ULONG                   vc_ActivePlane;
+    struct MemoryWindow *   vc_MemoryWindow;    // the memory window which is shown, NULL if none (memory-window.c)
+    volatile uint32_t *     vc_WindowCoord;     // its position word in the planes, NULL if they have no window plane
+    UBYTE                   vc_RebuildPlanes;   // the next SetPanning writes new planes even if the panning is the same
     ULONG                   vc_PlaneB;          // the second copy of the planes, see struct VBlank
     LONG                    vc_PlaneDelta;      // words from the copy the pointers below are in to the second one, 0 without
 

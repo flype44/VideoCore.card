@@ -184,6 +184,7 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreB
 #include "chip.h"
 #include "task.h"
 #include "vblank.h"
+#include "special-features.h"
 
 /* The value of a ToolType which switches something on: YES, TRUE or 1 */
 static BOOL ToolTypeIsOn(struct Library *IconBase, CONST_STRPTR value)
@@ -240,6 +241,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
     /* The functions of the BoardInfo: the ones of both families, and those of the family of this board */
     Chip_Init(bi, VideoCoreBase->vc_VideoCore6 ? &VC6_Family : &VC4_Family);
+    Special_Init(bi);
 
     
     bug("[VC] Measuring refresh rate\n");

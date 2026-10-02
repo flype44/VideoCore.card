@@ -25,6 +25,18 @@ struct Panning {
     ULONG SpriteKernel;                 /* offset of the scaling kernel of the sprite in the display list memory */
 };
 
+/* A memory window (the PiP of a program, see memory-window.c) as a plane of the display list, in pixels of the display */
+struct WindowPlane {
+    ULONG       Address;                /* pixel memory of the source bitmap */
+    ULONG       BytesPerRow;
+    RGBFTYPE    Format;
+    WORD        X;                      /* position on the display */
+    WORD        Y;
+    UWORD       Width;                  /* size on the display, the size of the source */
+    UWORD       Height;
+    UWORD       Alpha;                  /* opacity over what is under it, 12 bits: 0xfff is opaque */
+};
+
 /* What tells a family of the VideoCore from the other one: the numbers of its display lists and the functions which
    write their words. WritePlane and WriteSprite return the index of the word after what they wrote. */
 struct ChipFamily {
@@ -40,10 +52,22 @@ struct ChipFamily {
     int       (*WriteSprite)(struct BoardInfo *b, const struct Panning *pan, int cnt);
     APTR        SetSprite;
     APTR        SetSpritePosition;
+    ULONG       WindowPlaneWords;       /* words of the plane of a memory window, 0 if the family has none */
+    int       (*WriteWindow)(struct BoardInfo *b, const struct WindowPlane *window, int pos);
+    ULONG     (*WindowPosition)(const struct WindowPlane *window);   /* the position word of that plane */
+    ULONG     (*WindowAlpha)(const struct WindowPlane *window);      /* its alpha word, the one after the position */
 };
 
 /* Gives the BoardInfo the functions both families share and then those of the family */
 void Chip_Init(struct BoardInfo *bi, const struct ChipFamily *family);
+
+/* Writes the planes of the screen again, with the memory window as it is now: after a change of the window which
+   its position word cannot show (it appears, disappears, changes size, format or memory) */
+void Chip_RebuildPlanes(struct BoardInfo *b);
+
+/* Writes the position and the opacity of the plane of the memory window which is in the planes; the window moved or
+   became more or less transparent, or the panning changed */
+void Chip_UpdateWindowPlane(struct VideoCoreBase *VideoCoreBase, const struct WindowPlane *window);
 
 /* For the card: the DPMS levels through the display power of the firmware */
 void Chip_SetDPMSLevel(REGARG(struct BoardInfo *b, "a0"), REGARG(ULONG level, "d0"));

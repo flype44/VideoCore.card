@@ -43,6 +43,14 @@ void VBlank_WriteSprite(struct VideoCoreBase *VideoCoreBase, ULONG word)
         wr32le(&VideoCoreBase->vc_MouseCoord[0], word);
 }
 
+/* No memory window on the host */
+BOOL MemoryWindow_Plane(struct VideoCoreBase *VideoCoreBase, struct WindowPlane *window)
+{
+    (void)VideoCoreBase;
+    (void)window;
+    return FALSE;
+}
+
 static struct BoardInfo bi;
 static struct ModeInfo mi;
 static struct VideoCoreBase vcb;

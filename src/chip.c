@@ -26,6 +26,7 @@
 #include "buddyalloc.h"
 #include "hvs.h"
 #include "chip.h"
+#include "memory-window.h"
 
 UWORD Chip_CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD width, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
@@ -451,8 +452,11 @@ void Chip_SetDPMSLevel(REGARG(struct BoardInfo *b, "a0"), REGARG(ULONG level, "d
 /* Writes the planes of a screen, the main one and the sprite, in the display list memory. With the vertical blank
    interrupt they are written twice, the handler shows one copy and writes the position of the sprite in the other
    (see vblank.c). The pointers of VideoCoreBase end up in the first copy, vc_PlaneDelta leads to the second.
+   A memory window, if there is one, is a plane between the main plane and the sprite plane. The planes then need
+   room for it: words includes the words of the window plane.
    Returns the first copy, the second one in *copy_b (-1 when there is none). */
-static ULONG Chip_WritePlanes(struct BoardInfo *b, const struct Panning *pan, ULONG words, ULONG *copy_b)
+static ULONG Chip_WritePlanes(struct BoardInfo *b, const struct Panning *pan, const struct WindowPlane *window,
+                              ULONG words, ULONG *copy_b)
 {
     struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
     const struct ChipFamily *family = VideoCoreBase->vc_Family;
@@ -467,12 +471,19 @@ static ULONG Chip_WritePlanes(struct BoardInfo *b, const struct Panning *pan, UL
         if (second != 0xffffffff)
         {
             cnt = family->WritePlane(b, pan, BUDDY_OFFSET(second));
+            if (window != NULL)
+                cnt = family->WriteWindow(b, window, cnt);
             family->WriteSprite(b, pan, cnt);
             delta = (LONG)BUDDY_OFFSET(second) - (LONG)BUDDY_OFFSET(plane);
         }
     }
 
+    /* The pointers of VideoCoreBase are set by the writes of the last copy */
+    VideoCoreBase->vc_WindowCoord = NULL;
+
     cnt = family->WritePlane(b, pan, BUDDY_OFFSET(plane));
+    if (window != NULL)
+        cnt = family->WriteWindow(b, window, cnt);
     family->WriteSprite(b, pan, cnt);
 
     VideoCoreBase->vc_PlaneDelta = delta;
@@ -508,12 +519,16 @@ static void Chip_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *add
     ULONG plane_b = -1;
 
     int offset_only = 0;
+    int rebuild = VideoCoreBase->vc_RebuildPlanes;
+
+    VideoCoreBase->vc_RebuildPlanes = FALSE;
 
     if (0) {
         bug("[VC] SetPanning %lx %ld %ld %ld %lx\n", addr, width, x_offset, y_offset, format);
     }
 
-    if (VideoCoreBase->vc_LastPanning.lp_Addr != NULL &&
+    if (!rebuild &&
+        VideoCoreBase->vc_LastPanning.lp_Addr != NULL &&
         width == VideoCoreBase->vc_LastPanning.lp_Width &&
         format == VideoCoreBase->vc_LastPanning.lp_Format)
     {
@@ -605,12 +620,22 @@ static void Chip_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *add
     pan.Kernel = BUDDY_OFFSET(VideoCoreBase->vc_ScalingKernel);
     pan.SpriteWidth = sprite_width;
     pan.SpriteHeight = sprite_height;
+
+    /* A memory window is a plane of its own. The planes in the display list must have it, or not, as the window is
+       now: when they do not agree they are written again. */
+    struct WindowPlane window;
+    int has_window = family->WriteWindow != NULL && MemoryWindow_Plane(VideoCoreBase, &window);
+
+    if (offset_only && has_window != (VideoCoreBase->vc_WindowCoord != NULL))
+        offset_only = 0;
   
     if (unity) {
         if (offset_only) {
             plane = VideoCoreBase->vc_ActivePlane;
             pos = BUDDY_OFFSET(plane);
             Chip_Poke(VideoCoreBase, &displist[pos + family->UnityAddressWord], 0xc0000000 | pan.Address);
+            if (has_window)
+                Chip_UpdateWindowPlane(VideoCoreBase, &window);
             if (VideoCoreBase->vc_SpriteVisible)
                 b->SetSpritePosition(b, VideoCoreBase->vc_MouseX, VideoCoreBase->vc_MouseY, format);
         }
@@ -619,7 +644,8 @@ static void Chip_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *add
             pan.SpriteY = offset_y + VideoCoreBase->vc_MouseY - y_offset;
             pan.SpriteKernel = BUDDY_OFFSET(VideoCoreBase->vc_UnityKernel);
 
-            plane = Chip_WritePlanes(b, &pan, family->UnityPlaneWords, &plane_b);
+            plane = Chip_WritePlanes(b, &pan, has_window ? &window : NULL,
+                                     family->UnityPlaneWords + (has_window ? family->WindowPlaneWords : 0), &plane_b);
             pos = BUDDY_OFFSET(plane);
         }
     } else {
@@ -627,6 +653,8 @@ static void Chip_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *add
             plane = VideoCoreBase->vc_ActivePlane;
             pos = BUDDY_OFFSET(plane);
             Chip_Poke(VideoCoreBase, &displist[pos + family->ScaledAddressWord], 0xc0000000 | pan.Address);
+            if (has_window)
+                Chip_UpdateWindowPlane(VideoCoreBase, &window);
             if (VideoCoreBase->vc_SpriteVisible)
                 b->SetSpritePosition(b, VideoCoreBase->vc_MouseX, VideoCoreBase->vc_MouseY, format);
         }
@@ -636,7 +664,8 @@ static void Chip_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *add
             pan.SpriteY = offset_y + 0x10000 * (VideoCoreBase->vc_MouseY - y_offset) / (LONG)VideoCoreBase->vc_ScaleY;
             pan.SpriteKernel = pan.Kernel;
 
-            plane = Chip_WritePlanes(b, &pan, family->ScaledPlaneWords, &plane_b);
+            plane = Chip_WritePlanes(b, &pan, has_window ? &window : NULL,
+                                     family->ScaledPlaneWords + (has_window ? family->WindowPlaneWords : 0), &plane_b);
             pos = BUDDY_OFFSET(plane);
         }
     }
@@ -665,6 +694,31 @@ static void Chip_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *add
         BuddyFree(VideoCoreBase, VideoCoreBase->vc_PlaneB);
         VideoCoreBase->vc_ActivePlane = plane;
         VideoCoreBase->vc_PlaneB = plane_b;
+    }
+}
+
+void Chip_RebuildPlanes(struct BoardInfo *b)
+{
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+
+    /* Nothing is shown yet: the first SetPanning writes the planes with the window as it is then */
+    if (VideoCoreBase->vc_LastPanning.lp_Addr == NULL)
+        return;
+
+    VideoCoreBase->vc_RebuildPlanes = TRUE;
+    Chip_SetPanning(b, VideoCoreBase->vc_LastPanning.lp_Addr, VideoCoreBase->vc_LastPanning.lp_Width,
+                    VideoCoreBase->vc_LastPanning.lp_X, VideoCoreBase->vc_LastPanning.lp_Y,
+                    VideoCoreBase->vc_LastPanning.lp_Format);
+}
+
+void Chip_UpdateWindowPlane(struct VideoCoreBase *VideoCoreBase, const struct WindowPlane *window)
+{
+    const struct ChipFamily *family = VideoCoreBase->vc_Family;
+
+    if (VideoCoreBase->vc_WindowCoord != NULL)
+    {
+        Chip_Poke(VideoCoreBase, &VideoCoreBase->vc_WindowCoord[0], family->WindowPosition(window));
+        Chip_Poke(VideoCoreBase, &VideoCoreBase->vc_WindowCoord[1], family->WindowAlpha(window));
     }
 }
 

@@ -471,6 +471,51 @@ static void VC6_ConstructUnicamDL(struct VideoCoreBase *VideoCoreBase)
 
 /* Fills the BoardInfo with the functions of VideoCore 6 */
 /* What makes VC6 itself */
+/* The alpha word of the plane of a memory window: the same opacity for every pixel, the alpha byte of the pixels is
+   not used. Measured on the RPi4: the window is not blended with the screen under it, it is darkened in proportion to
+   its alpha (the colours times the alpha, over black): a dimmer, not a transparency. Tried without any change: the
+   mode PIPELINE | PREMULT | MIX with 0xff in the alpha byte of the pixels, and the plane written as a scaled plane
+   (scale of 1) instead of a unity plane. */
+static ULONG VC6_WindowAlpha(const struct WindowPlane *window)
+{
+    return (VC6_SCALER_POS2_ALPHA_MODE_FIXED << VC6_SCALER_POS2_ALPHA_MODE_SHIFT) | VC6_SCALER_POS2_ALPHA(window->Alpha);
+}
+
+/* The plane of a memory window, between the main plane and the sprite plane: the source bitmap at its own size,
+   not scaled, with the opacity of the window. Its position word is the first one after the control word, then
+   comes the alpha word. */
+static int VC6_WriteWindow(struct BoardInfo *b, const struct WindowPlane *window, int pos)
+{
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    volatile uint32_t *displist = (uint32_t *)VideoCoreBase->vc_Family->DisplayList;
+    int cnt = pos + 1;
+
+    VideoCoreBase->vc_WindowCoord = &displist[cnt];
+    wr32le(&displist[cnt++], VC6_POS0_X(window->X) | VC6_POS0_Y(window->Y));
+    wr32le(&displist[cnt++], VC6_WindowAlpha(window));
+    wr32le(&displist[cnt++], VC6_POS2_H(window->Height) | VC6_POS2_W(window->Width));
+    wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
+
+    wr32le(&displist[cnt++], 0xc0000000 | window->Address);
+    wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
+    wr32le(&displist[cnt++], window->BytesPerRow);
+
+    wr32le(&displist[pos],
+        VC6_CONTROL_VALID
+        | VC6_CONTROL_WORDS(cnt - pos)
+        | VC6_CONTROL_UNITY
+        | VC6_CONTROL_ALPHA_EXPAND
+        | VC6_CONTROL_RGB_EXPAND
+        | mode_table[window->Format]);
+
+    return cnt;
+}
+
+static ULONG VC6_WindowPosition(const struct WindowPlane *window)
+{
+    return VC6_POS0_X(window->X) | VC6_POS0_Y(window->Y);
+}
+
 const struct ChipFamily VC6_Family = {
     "VC6",
     (APTR)VC6_DISPLAY_LIST,
@@ -483,5 +528,9 @@ const struct ChipFamily VC6_Family = {
     VC6_WritePlane,
     VC6_WriteSprite,
     VC6_SetSprite,
-    VC6_SetSpritePosition
+    VC6_SetSpritePosition,
+    8,
+    VC6_WriteWindow,
+    VC6_WindowPosition,
+    VC6_WindowAlpha
 };

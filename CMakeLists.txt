@@ -24,6 +24,8 @@ add_executable(VideoCore.card
     src/hvs.c
     src/chip.c
     src/vblank.c
+    src/special-features.c
+    src/memory-window.c
     src/task.c
 )
 
