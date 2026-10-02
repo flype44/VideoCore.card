@@ -48,6 +48,9 @@ void Chip_Init(struct BoardInfo *bi, const struct ChipFamily *family);
 /* For the card: the DPMS levels through the display power of the firmware */
 void Chip_SetDPMSLevel(REGARG(struct BoardInfo *b, "a0"), REGARG(ULONG level, "d0"));
 
+/* Writes a word of the planes which is not the position of the sprite, in both copies when there are two */
+void Chip_Poke(struct VideoCoreBase *VideoCoreBase, volatile uint32_t *word, ULONG value);
+
 /* The families need this one for the display lists they write */
 UWORD Chip_CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD width, "d0"), REGARG(RGBFTYPE format, "d7"));
 

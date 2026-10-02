@@ -273,6 +273,25 @@ static void Chip_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTY
     CacheClearE(VideoCoreBase->vc_SpriteShape, MAXSPRITEHEIGHT * MAXSPRITEWIDTH, CACRF_ClearD);
 }
 
+void Chip_Poke(struct VideoCoreBase *VideoCoreBase, volatile uint32_t *word, ULONG value)
+{
+    wr32le(word, value);
+
+    if (VideoCoreBase->vc_PlaneDelta != 0)
+        wr32le(word + VideoCoreBase->vc_PlaneDelta, value);
+}
+
+/* The index of the planes the HVS shows, in the display list memory */
+static ULONG Chip_ShownList(struct VideoCoreBase *VideoCoreBase)
+{
+    struct VBlank *vblank = &VideoCoreBase->vc_VBlank;
+
+    if (vblank->Pair)
+        return vblank->List[vblank->Shown];
+
+    return BUDDY_OFFSET(VideoCoreBase->vc_ActivePlane);
+}
+
 static void Chip_SetSpriteColor(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE idx, "d0"),
                     REGARG(UBYTE R, "d1"), REGARG(UBYTE G, "d2"), REGARG(UBYTE B, "d3"),
                     REGARG(RGBFTYPE format, "d7"))
@@ -281,7 +300,7 @@ static void Chip_SetSpriteColor(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE 
     if (idx < 3) {
         VideoCoreBase->vc_SpriteColors[idx] = (VideoCoreBase->vc_SpriteAlpha << 24) | (R << 16) | (G << 8) | B;
         if (VideoCoreBase->vc_MousePalette) {
-            wr32le(&VideoCoreBase->vc_MousePalette[idx], VideoCoreBase->vc_SpriteColors[idx]);
+            Chip_Poke(VideoCoreBase, &VideoCoreBase->vc_MousePalette[idx], VideoCoreBase->vc_SpriteColors[idx]);
         }
     }
 }
@@ -347,14 +366,18 @@ static UWORD Chip_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enab
                 else ((volatile struct CIA *)0xbfd000)->ciapra |= CIAF_PRTRSEL;
                 break;
            case CSI:
+                /* The handler of the vertical blank shows the other copy of the planes, unless Unicam is visible:
+                   it must not run between the flag and the register */
+                Disable();
                 if (!en) {
                     VideoCoreBase->vc_UnicamVisible = TRUE;
                     wr32le((volatile uint32_t *)(HVS_BASE + SCALER_DISPLIST1), BUDDY_OFFSET(VideoCoreBase->vc_UnicamDL));
                 }
                 else {
                     VideoCoreBase->vc_UnicamVisible = FALSE;
-                    wr32le((volatile uint32_t *)(HVS_BASE + SCALER_DISPLIST1), BUDDY_OFFSET(VideoCoreBase->vc_ActivePlane));
+                    wr32le((volatile uint32_t *)(HVS_BASE + SCALER_DISPLIST1), Chip_ShownList(VideoCoreBase));
                 }
+                Enable();
                 break;
         }
     }
@@ -425,6 +448,39 @@ void Chip_SetDPMSLevel(REGARG(struct BoardInfo *b, "a0"), REGARG(ULONG level, "d
     }
 }
 
+/* Writes the planes of a screen, the main one and the sprite, in the display list memory. With the vertical blank
+   interrupt they are written twice, the handler shows one copy and writes the position of the sprite in the other
+   (see vblank.c). The pointers of VideoCoreBase end up in the first copy, vc_PlaneDelta leads to the second.
+   Returns the first copy, the second one in *copy_b (-1 when there is none). */
+static ULONG Chip_WritePlanes(struct BoardInfo *b, const struct Panning *pan, ULONG words, ULONG *copy_b)
+{
+    struct VideoCoreBase *VideoCoreBase = (struct VideoCoreBase *)b->CardBase;
+    const struct ChipFamily *family = VideoCoreBase->vc_Family;
+    ULONG plane = BuddyAlloc(VideoCoreBase, words);
+    ULONG second = -1;
+    LONG delta = 0;
+    int cnt;
+
+    if (VideoCoreBase->vc_VBlank.Gic != NULL)
+    {
+        second = BuddyAlloc(VideoCoreBase, words);
+        if (second != 0xffffffff)
+        {
+            cnt = family->WritePlane(b, pan, BUDDY_OFFSET(second));
+            family->WriteSprite(b, pan, cnt);
+            delta = (LONG)BUDDY_OFFSET(second) - (LONG)BUDDY_OFFSET(plane);
+        }
+    }
+
+    cnt = family->WritePlane(b, pan, BUDDY_OFFSET(plane));
+    family->WriteSprite(b, pan, cnt);
+
+    VideoCoreBase->vc_PlaneDelta = delta;
+    *copy_b = second;
+
+    return plane;
+}
+
 /* Chooses the plane of the display list for a panning, the family writes its words */
 static void Chip_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
                 REGARG(UWORD width, "d0"), REGARG(WORD x_offset, "d1"), REGARG(WORD y_offset, "d2"),
@@ -449,6 +505,7 @@ static void Chip_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *add
     ULONG bytes_per_pix = bytes_per_row / width;
     UWORD pos = 0;
     ULONG plane = -1;
+    ULONG plane_b = -1;
 
     int offset_only = 0;
 
@@ -553,52 +610,61 @@ static void Chip_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *add
         if (offset_only) {
             plane = VideoCoreBase->vc_ActivePlane;
             pos = BUDDY_OFFSET(plane);
-            wr32le(&displist[pos + family->UnityAddressWord], 0xc0000000 | pan.Address);
+            Chip_Poke(VideoCoreBase, &displist[pos + family->UnityAddressWord], 0xc0000000 | pan.Address);
             if (VideoCoreBase->vc_SpriteVisible)
                 b->SetSpritePosition(b, VideoCoreBase->vc_MouseX, VideoCoreBase->vc_MouseY, format);
         }
         else {
-            plane = BuddyAlloc(VideoCoreBase, family->UnityPlaneWords);
-            pos = BUDDY_OFFSET(plane);
-            int cnt = family->WritePlane(b, &pan, pos);
-
             pan.SpriteX = offset_x + VideoCoreBase->vc_MouseX - x_offset;
             pan.SpriteY = offset_y + VideoCoreBase->vc_MouseY - y_offset;
             pan.SpriteKernel = BUDDY_OFFSET(VideoCoreBase->vc_UnityKernel);
-            cnt = family->WriteSprite(b, &pan, cnt);
+
+            plane = Chip_WritePlanes(b, &pan, family->UnityPlaneWords, &plane_b);
+            pos = BUDDY_OFFSET(plane);
         }
     } else {
         if (offset_only) {
             plane = VideoCoreBase->vc_ActivePlane;
             pos = BUDDY_OFFSET(plane);
-            wr32le(&displist[pos + family->ScaledAddressWord], 0xc0000000 | pan.Address);
+            Chip_Poke(VideoCoreBase, &displist[pos + family->ScaledAddressWord], 0xc0000000 | pan.Address);
             if (VideoCoreBase->vc_SpriteVisible)
                 b->SetSpritePosition(b, VideoCoreBase->vc_MouseX, VideoCoreBase->vc_MouseY, format);
         }
         else
         {
-            plane = BuddyAlloc(VideoCoreBase, family->ScaledPlaneWords);
-            pos = BUDDY_OFFSET(plane);
-            int cnt = family->WritePlane(b, &pan, pos);
-
             pan.SpriteX = offset_x + 0x10000 * (VideoCoreBase->vc_MouseX - x_offset) / (LONG)VideoCoreBase->vc_ScaleX;
             pan.SpriteY = offset_y + 0x10000 * (VideoCoreBase->vc_MouseY - y_offset) / (LONG)VideoCoreBase->vc_ScaleY;
             pan.SpriteKernel = pan.Kernel;
-            cnt = family->WriteSprite(b, &pan, cnt);
+
+            plane = Chip_WritePlanes(b, &pan, family->ScaledPlaneWords, &plane_b);
+            pos = BUDDY_OFFSET(plane);
         }
     }
 
     if (plane != VideoCoreBase->vc_ActivePlane)
     {
         volatile ULONG *stat = (ULONG*)(HVS_BASE + SCALER_DISPSTAT1);
+        struct VBlank *vblank = &VideoCoreBase->vc_VBlank;
 
         // Wait for vertical blank before updating the display list
         do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VideoCoreBase->vc_DispSize.height);
 
+        // The handler of the vertical blank must not run between the register and what it flips
+        Disable();
         wr32le((volatile uint32_t *)(HVS_BASE + SCALER_DISPLIST1), pos);
-        VideoCoreBase->vc_VBlank.SpritePending = FALSE;     // the new plane has the current position of the mouse
+        vblank->SpritePending = FALSE;     // the new plane has the current position of the mouse
+        vblank->List[0] = pos;
+        vblank->List[1] = plane_b != 0xffffffff ? BUDDY_OFFSET(plane_b) : pos;
+        vblank->PosWord = (ULONG)(VideoCoreBase->vc_MouseCoord - (volatile uint32_t *)displist) - pos;
+        vblank->SpriteWord = LE32(displist[pos + vblank->PosWord]);
+        vblank->Shown = 0;
+        vblank->Pair = plane_b != 0xffffffff;
+        Enable();
+
         BuddyFree(VideoCoreBase, VideoCoreBase->vc_ActivePlane);
+        BuddyFree(VideoCoreBase, VideoCoreBase->vc_PlaneB);
         VideoCoreBase->vc_ActivePlane = plane;
+        VideoCoreBase->vc_PlaneB = plane_b;
     }
 }
 

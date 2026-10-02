@@ -11,4 +11,6 @@ void CloseLibrary(void *lib);
 void *OpenResource(const char *name);
 void Forbid(void);
 void Permit(void);
+void Disable(void);
+void Enable(void);
 #endif

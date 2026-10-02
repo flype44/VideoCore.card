@@ -139,6 +139,7 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VideoCoreB
     bug("[VC] Physical display size: %ld x %ld\n", (ULONG)VideoCoreBase->vc_DispSize.width, (ULONG)VideoCoreBase->vc_DispSize.height);
 
     VideoCoreBase->vc_ActivePlane = -1;
+    VideoCoreBase->vc_PlaneB = -1;
 
     VideoCoreBase->vc_VideoCore6 = 0;
 

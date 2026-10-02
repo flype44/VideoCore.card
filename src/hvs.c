@@ -241,15 +241,15 @@ void HVS_SetKernel(struct VideoCoreBase *VideoCoreBase, ULONG kernel, ULONG b, U
     {
         HVS_WaitVBlank(VideoCoreBase);
 
-        wr32le(&VideoCoreBase->vc_Kernel[0], kernel_start);
-        wr32le(&VideoCoreBase->vc_Kernel[1], kernel_start);
-        wr32le(&VideoCoreBase->vc_Kernel[2], kernel_start);
-        wr32le(&VideoCoreBase->vc_Kernel[3], kernel_start);
+        Chip_Poke(VideoCoreBase, &VideoCoreBase->vc_Kernel[0], kernel_start);
+        Chip_Poke(VideoCoreBase, &VideoCoreBase->vc_Kernel[1], kernel_start);
+        Chip_Poke(VideoCoreBase, &VideoCoreBase->vc_Kernel[2], kernel_start);
+        Chip_Poke(VideoCoreBase, &VideoCoreBase->vc_Kernel[3], kernel_start);
 
-        wr32le(&VideoCoreBase->vc_MouseCoord[12], kernel_start);
-        wr32le(&VideoCoreBase->vc_MouseCoord[13], kernel_start);
-        wr32le(&VideoCoreBase->vc_MouseCoord[14], kernel_start);
-        wr32le(&VideoCoreBase->vc_MouseCoord[15], kernel_start);
+        Chip_Poke(VideoCoreBase, &VideoCoreBase->vc_MouseCoord[12], kernel_start);
+        Chip_Poke(VideoCoreBase, &VideoCoreBase->vc_MouseCoord[13], kernel_start);
+        Chip_Poke(VideoCoreBase, &VideoCoreBase->vc_MouseCoord[14], kernel_start);
+        Chip_Poke(VideoCoreBase, &VideoCoreBase->vc_MouseCoord[15], kernel_start);
     }
 
     BuddyFree(VideoCoreBase, VideoCoreBase->vc_ScalingKernel);
@@ -271,22 +271,22 @@ void HVS_SetScaler(struct VideoCoreBase *VideoCoreBase, ULONG scaler)
     if (VideoCoreBase->vc_PlaneScalerX) {
         ULONG val = LE32(*VideoCoreBase->vc_PlaneScalerX);
         val = (val & 0x3fffffff) | (scaler << 30);
-        wr32le(VideoCoreBase->vc_PlaneScalerX, val);
+        Chip_Poke(VideoCoreBase, VideoCoreBase->vc_PlaneScalerX, val);
     }
     if (VideoCoreBase->vc_PlaneScalerY) {
         ULONG val = LE32(*VideoCoreBase->vc_PlaneScalerY);
         val = (val & 0x3fffffff) | (scaler << 30);
-        wr32le(VideoCoreBase->vc_PlaneScalerY, val);
+        Chip_Poke(VideoCoreBase, VideoCoreBase->vc_PlaneScalerY, val);
     }
 
     if (VideoCoreBase->vc_ScaleX != 0x10000) {
         ULONG val = LE32(VideoCoreBase->vc_MouseCoord[9]);
         val = (val & 0x3fffffff) | (scaler << 30);
-        wr32le(&VideoCoreBase->vc_MouseCoord[9], val);
+        Chip_Poke(VideoCoreBase, &VideoCoreBase->vc_MouseCoord[9], val);
 
         val = LE32(VideoCoreBase->vc_MouseCoord[10]);
         val = (val & 0x3fffffff) | (scaler << 30);
-        wr32le(&VideoCoreBase->vc_MouseCoord[10], val);
+        Chip_Poke(VideoCoreBase, &VideoCoreBase->vc_MouseCoord[10], val);
     }
 }
 
@@ -305,22 +305,22 @@ void HVS_SetPhase(struct VideoCoreBase *VideoCoreBase, ULONG phase)
     if (VideoCoreBase->vc_PlaneScalerX) {
         ULONG val = LE32(*VideoCoreBase->vc_PlaneScalerX);
         val = (val & 0xffffff00) | (phase & 0xff);
-        wr32le(VideoCoreBase->vc_PlaneScalerX, val);
+        Chip_Poke(VideoCoreBase, VideoCoreBase->vc_PlaneScalerX, val);
     }
     if (VideoCoreBase->vc_PlaneScalerY) {
         ULONG val = LE32(*VideoCoreBase->vc_PlaneScalerY);
         val = (val & 0xffffff00) | (phase & 0xff);
-        wr32le(VideoCoreBase->vc_PlaneScalerY, val);
+        Chip_Poke(VideoCoreBase, VideoCoreBase->vc_PlaneScalerY, val);
     }
 
     if (VideoCoreBase->vc_ScaleX != 0x10000) {
         ULONG val = LE32(VideoCoreBase->vc_MouseCoord[9]);
         val = (val & 0xffffff00) | (phase & 0xff);
-        wr32le(&VideoCoreBase->vc_MouseCoord[9], val);
+        Chip_Poke(VideoCoreBase, &VideoCoreBase->vc_MouseCoord[9], val);
 
         val = LE32(VideoCoreBase->vc_MouseCoord[10]);
         val = (val & 0xffffff00) | (phase & 0xff);
-        wr32le(&VideoCoreBase->vc_MouseCoord[10], val);
+        Chip_Poke(VideoCoreBase, &VideoCoreBase->vc_MouseCoord[10], val);
     }
 }
 

@@ -40,6 +40,12 @@ struct VBlank {
     volatile ULONG         Count;               // interrupts seen
     volatile ULONG         SpriteWord;          // position word of the sprite plane which waits for the vertical blank
     volatile UBYTE         SpritePending;
+    /* With the interrupt the planes exist twice, in the display list memory: the HVS shows one and the position of
+       the sprite is written in the other, which the handler then shows. Both are kept equal in every other word. */
+    volatile UBYTE         Pair;                // the two copies exist
+    volatile UBYTE         Shown;               // the one the HVS shows
+    ULONG                  List[2];             // index of each in the display list memory
+    ULONG                  PosWord;             // index of the position word of the sprite in a copy
 };
 
 enum SwitchMode {
@@ -74,7 +80,8 @@ struct VideoCoreBase {
     APTR                    vc_VPU_CopyBlock;
 
     ULONG                   vc_ActivePlane;
-    ULONG                   vc_FreePlane;
+    ULONG                   vc_PlaneB;          // the second copy of the planes, see struct VBlank
+    LONG                    vc_PlaneDelta;      // words from the copy the pointers below are in to the second one, 0 without
 
     ULONG                   vc_Scaler;
     UBYTE                   vc_Phase;

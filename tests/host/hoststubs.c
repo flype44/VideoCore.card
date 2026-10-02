@@ -23,6 +23,8 @@ void CloseLibrary(void *lib) { (void)lib; }
 void *OpenResource(const char *name) { (void)name; return NULL; }
 void Forbid(void) {}
 void Permit(void) {}
+void Disable(void) {}
+void Enable(void) {}
 
 /* The state of unicam.resource, the tests set it */
 ULONG host_unicam_config = 0;
