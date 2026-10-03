@@ -82,7 +82,31 @@ loop_64:
         bcc loop_64
 
 smaller_than_64:
+        cmp r7, 0
+        beq copy_end
 
+# Fewer than 64 bytes are left. Scalar accesses are slow (about 150 ns a pair), so copy the end of
+# the line with one more vector block that starts 64 - r7 bytes before the pointers and overlaps
+# bytes that are already copied. It reads them again: that is only wrong when the destination is
+# less than 64 bytes before the source, and for a line shorter than 64 bytes there is nothing to
+# overlap. Both cases take the scalar tail.
+        cmp r2, 64
+        bcs scalar_tail
+        mov r8, r0
+        sub r8, r1
+        cmp r8, 64
+        bcs scalar_tail
+        mov r8, 64
+        sub r8, r7
+        sub r0, r8
+        sub r1, r8
+        vld HY(0, 0), (r0)
+        add r0, 64
+        vst HY(0, 0), (r1)
+        add r1, 64
+        b copy_end
+
+scalar_tail:
         cmp r7, 4
         bcs smaller_than_4
 
