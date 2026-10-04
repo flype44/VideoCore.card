@@ -27,7 +27,8 @@ int VPU_BlockCopy(APTR source, APTR dest, ULONG length, struct VC4Base *VC4Base)
 
 int VPU_RectCopy(APTR source, APTR dest, ULONG width, ULONG height, ULONG stride_src, ULONG stride_dst, struct VC4Base *VC4Base)
 {
-    if (source > dest)
+    /* Source and destination may carry different aliases of the bus in their top bits */
+    if (((ULONG)source & 0x3fffffff) > ((ULONG)dest & 0x3fffffff))
     {
         if (VC4Base->vc4_VPUCopyRect == 0)
         {

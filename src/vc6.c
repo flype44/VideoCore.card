@@ -907,10 +907,13 @@ void VC6_BlitRect(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *r
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     ULONG bpp = bpp_table[format];
     ULONG stride = r->BytesPerRow;
+    /* The VPU reads through the uncached alias of the bus (0xc0000000) and writes through the cached one
+       (0x80000000): writing is what costs, about three times less this way */
     ULONG src = 0xc0000000 + (ULONG)r->Memory + y * stride + x * bpp;
-    ULONG dst = 0xc0000000 + (ULONG)r->Memory + dy * stride + dx * bpp;
+    ULONG dst = 0x80000000 + (ULONG)r->Memory + dy * stride + dx * bpp;
     ULONG height = h;
     ULONG width = w * bpp;
+    LONG gap = (LONG)((src & 0x3fffffff) - (dst & 0x3fffffff));
 
     /* Only bitmaps located in the memory visible to the VPU can be handled, and
        small rectangles are cheaper to copy by the CPU than a mailbox round trip */
@@ -921,8 +924,9 @@ void VC6_BlitRect(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *r
         return;
     }
 
-    /* The VPU copy knows nothing about masks */
-    if (mask != 0xff || VPU_RectCopy((APTR)src, (APTR)dst, width, height, stride - width, stride - width, VC4Base) == 0)
+    /* The VPU copy knows nothing about masks, and it does not move a rectangle by less than 64 bytes inside
+       its rows: the end of a line would be written with scalar stores, which do not mix with the cached alias */
+    if (mask != 0xff || (gap > -64 && gap < 64) || VPU_RectCopy((APTR)src, (APTR)dst, width, height, stride - width, stride - width, VC4Base) == 0)
     {
         b->BlitRectDefault(b, r, x, y, dx, dy, w, h, mask, format);
     }
