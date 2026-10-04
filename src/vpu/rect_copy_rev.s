@@ -30,6 +30,30 @@ loop:
         beq exit
         mov r7, r2
 
+# Writes that end off a 32 byte boundary cost twice as much: write the last 64 bytes of the line
+# unaligned (they overlap what is copied next), then go on downwards from an aligned destination address.
+# Not for short lines, nor when source and destination are less than 64 bytes apart.
+        cmp r2, 96
+        bcs aligned
+        mov r8, r1
+        sub r8, r0
+        cmp r8, 64
+        bcs aligned
+        mov r8, r1
+        and r8, 31
+        cmp r8, 0
+        beq aligned
+        sub r0, 64
+        sub r1, 64
+        vld HY(0, 0), (r0)
+        vst HY(0, 0), (r1)
+        add r0, 64
+        add r1, 64
+        sub r0, r8
+        sub r1, r8
+        sub r7, r8
+aligned:
+
 # Copy whole line now, do in largest possible blocks
         cmp r7, 4096
         bcs smaller_than_4K
