@@ -149,7 +149,7 @@ static void DMA40_CachePre(struct ExecBase *SysBase, ULONG addr, ULONG bytes, UL
    destination is above the source) the rows, and the blocks of a row, go from the last to the first, or a block would
    overwrite source bytes that a later one still has to read (the caller has excluded an overlap inside a row). */
 static void DMA40_Start(struct VC4Base *VC4Base, ULONG src, ULONG dst, ULONG width, ULONG height,
-                        ULONG srcpitch, ULONG dstpitch, BOOL reverse)
+                        ULONG srcpitch, ULONG dstpitch, BOOL reverse, BOOL fill)
 {
     struct DMA40 *d = &VC4Base->vc4_DMA;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -177,13 +177,14 @@ static void DMA40_Start(struct VC4Base *VC4Base, ULONG src, ULONG dst, ULONG wid
             ULONG p = reverse ? 2 - part : part;
             ULONG *c = cb + k * 8;
             ULONG info = INFO_INC | (p == 1 ? INFO_128_BURST16 : 0);
+            ULONG sinfo = fill ? info & ~INFO_INC : info;   /* a fill reads the same constant over and over */
 
             if (len[p] == 0)
                 continue;
 
             c[0] = LE32(0);                         /* ti: the interrupt of the last block is set below */
-            c[1] = LE32(s + off[p]);                /* src, then srci = upper address bits | transfer info */
-            c[2] = LE32(info);
+            c[1] = LE32(fill ? src : s + off[p]);   /* src, then srci = upper address bits | transfer info */
+            c[2] = LE32(sinfo);
             c[3] = LE32(t + off[p]);                /* dst, dsti */
             c[4] = LE32(info);
             c[5] = LE32(len[p]);
@@ -309,7 +310,40 @@ BOOL DMA40_CopyRect(struct VC4Base *VC4Base, ULONG src, ULONG dst, ULONG width, 
         DMA40_CachePre(SysBase, d->PostAddr[1], d->PostLen[1], 0);
     }
 
-    DMA40_Start(VC4Base, src, dst, width, height, srcpitch, dstpitch, (flags & DMA40F_MOVE) && dst > src);
+    DMA40_Start(VC4Base, src, dst, width, height, srcpitch, dstpitch, (flags & DMA40F_MOVE) && dst > src, FALSE);
+
+    return TRUE;
+}
+
+BOOL DMA40_FillRect(struct VC4Base *VC4Base, ULONG dst, ULONG width, ULONG height, ULONG dstpitch, ULONG value)
+{
+    struct DMA40 *d = &VC4Base->vc4_DMA;
+    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    volatile ULONG *k;
+    ULONG i;
+
+    if (!d->Ok)
+        return FALSE;
+
+    if (width == 0 || height == 0 || height > DMA40_MAX_ROWS || ((width | dst | dstpitch) & 3) || dstpitch < width)
+        return FALSE;
+
+    /* One transfer at a time (it also means the constant below is free) */
+    DMA40_Wait(VC4Base);
+
+    if (!d->Ok)
+        return FALSE;
+
+    /* The constant: 256 bytes of the pixel, which is what a burst of 16 beats of 128 bits reads (a burst reads its beats one after
+       the other even when the source does not increment: with only 16 bytes the rest of the row got what lay behind them). The
+       channel starts every burst at the same address. It sits behind the control blocks, where the self test of DMA40_Init() had
+       its scratch memory. */
+    k = (volatile ULONG *)(d->CbPhys + 32 * DMA40_MAX_BLOCKS);
+    for (i = 0; i < 64; i++)
+        k[i] = value;
+    CacheClearE((APTR)k, 256, CACRF_ClearD);
+
+    DMA40_Start(VC4Base, (ULONG)k, dst, width, height, 0, dstpitch, FALSE, TRUE);
 
     return TRUE;
 }
@@ -397,7 +431,7 @@ void DMA40_Init(struct VC4Base *VC4Base)
 
     CacheClearE(scratch, 2 * DMA40_SELFTEST, CACRF_ClearD);
 
-    DMA40_Start(VC4Base, (ULONG)scratch, (ULONG)scratch + DMA40_SELFTEST, DMA40_SELFTEST, 1, DMA40_SELFTEST, DMA40_SELFTEST, FALSE);
+    DMA40_Start(VC4Base, (ULONG)scratch, (ULONG)scratch + DMA40_SELFTEST, DMA40_SELFTEST, 1, DMA40_SELFTEST, DMA40_SELFTEST, FALSE, FALSE);
 
     t0 = DMA_TIMER();
     while (d->Count < d->Target && DMA_TIMER() - t0 < 50000)

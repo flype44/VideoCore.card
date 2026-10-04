@@ -41,6 +41,7 @@ struct DMA40 {
     BOOL                    Enabled;        /* ToolType VC6_DMA_ENABLE */
     BOOL                    Ok;             /* started and proven by the self test */
     ULONG                   Min;            /* smallest rectangle (bytes) sent to the DMA, ToolType VC6_DMA_THRESHOLD */
+    ULONG                   FillMin;        /* the same for the fills of FillRect, ToolType VC6_DMA_THRESHOLD_FILLRECT, 0 = off */
     ULONG                   Chan;
     ULONG                   Irq;
     struct Library *        Gic;

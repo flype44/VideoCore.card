@@ -922,13 +922,29 @@ void VC6_WaitBlitter(REGARG(struct BoardInfo *b, "a0"))
 #endif
 }
 
-/* FillRect - not accelerated yet, let Picasso96 do it */
+/* FillRect - the CPU writes the video memory as fast as the DMA does (about 1.3 GB/s), so Picasso96 does it, except for the
+   big fills that the user asked to send to the DMA (VC6_DMA_THRESHOLD_FILLRECT): it fills without the 68k, which sleeps in
+   WaitBlitter, but it takes about 115 us more */
 void VC6_FillRect(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *r, "a1"),
                   REGARG(WORD x, "d0"), REGARG(WORD y, "d1"),
                   REGARG(WORD w, "d2"), REGARG(WORD h, "d3"),
                   REGARG(ULONG color, "d4"), REGARG(UBYTE mask, "d5"),
                   REGARG(RGBFTYPE format, "d7"))
 {
+    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
+
+    if (VC4Base->vc4_DMA.FillMin != 0)
+    {
+        /* One transfer of the DMA at a time, and nothing else may touch the bitmap before it is over */
+        DMA40_Wait(VC4Base);
+
+        if (mask == 0xff && VC4Base->vc4_DMA.Ok && w > 0 && h > 0 && bpp_table[format] == 4 &&
+            (ULONG)w * 4 * (ULONG)h >= VC4Base->vc4_DMA.FillMin &&
+            (ULONG)r->Memory >= 0x01000000 && (ULONG)r->Memory < 0x40000000 &&
+            DMA40_FillRect(VC4Base, (ULONG)r->Memory + y * r->BytesPerRow + x * 4, (ULONG)w * 4, h, r->BytesPerRow, color))
+            return;
+    }
+
     b->FillRectDefault(b, r, x, y, w, h, color, mask, format);
 }
 

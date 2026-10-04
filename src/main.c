@@ -709,6 +709,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     VC4Base->vc4_VPUCopyMin = 32768;    // same for the copies between two bitmaps, which the VPU does faster than BlitRect
     VC4Base->vc4_DMA.Enabled = TRUE;    // the DMA copies the rectangles of BlitRect from this size, if it proves itself at start
     VC4Base->vc4_DMA.Min = 32768;
+    VC4Base->vc4_DMA.FillMin = 0;       // the DMA does not make a fill faster (same rate as the CPU, 115 us more): off unless asked for
 
     APTR UnicamBase = VC4Base->vc4_UnicamBase;
 
@@ -810,6 +811,23 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
             VC4Base->vc4_DMA.Min = num;
             bug("[VC] Setting DMA threshold to %ld bytes\n", num);
+        }
+        else if (_strcmp(tt, "VC6_DMA_THRESHOLD_FILLRECT") == '=')
+        {
+            /* Fills of at least this number of bytes go to the DMA, which frees the 68k while it runs (it is not faster than
+               the CPU: it is for the big clears of a window). 0, the default, leaves every fill to the CPU. */
+            const char *c = &tt[27];
+            ULONG num = 0;
+
+            while (*c) {
+                if (*c < '0' || *c > '9')
+                    break;
+
+                num = num * 10 + (*c++ - '0');
+            }
+
+            VC4Base->vc4_DMA.FillMin = num;
+            bug("[VC] Setting DMA threshold for FillRect to %ld bytes\n", num);
         }
         else if (_strcmp(tt, "VC4_SCALER") == '=')
         {

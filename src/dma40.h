@@ -19,6 +19,11 @@ void DMA40_Init(struct VC4Base *VC4Base);
 BOOL DMA40_CopyRect(struct VC4Base *VC4Base, ULONG src, ULONG dst, ULONG width, ULONG height,
                     ULONG srcpitch, ULONG dstpitch, ULONG flags);
 
+/* Fills the rectangle of `width` bytes and `height` rows at the physical address `dst` (rows `dstpitch` apart) with the
+   32 bit `value` repeated (a pixel of a 32 bit format, in the byte order of the memory: the long word as the 68k writes it).
+   The memory is the RTG memory (not cached by the CPU). Same answers as DMA40_CopyRect() */
+BOOL DMA40_FillRect(struct VC4Base *VC4Base, ULONG dst, ULONG width, ULONG height, ULONG dstpitch, ULONG value);
+
 /* Waits for the running transfer: sleeps until the interrupt of the channel, does nothing when none runs */
 void DMA40_Wait(struct VC4Base *VC4Base);
 
