@@ -1192,6 +1192,35 @@ static void VC6_MintermBlit(struct RenderInfo *rs, struct RenderInfo *rt,
     }
 }
 
+/* A plain copy of 32 bit pixels between two different bitmaps with the CPU, 8 pixels (32 bytes) at a time with
+   movem.l: a read of the video memory is slow (about 180 ns for a longword) but a burst is not (about 54 ns for
+   16 bytes). It is what Picasso96's Default does not do, and the VPU does not pay for the small ones. */
+static void VC6_CopyBlock(struct RenderInfo *rs, struct RenderInfo *rt,
+                          WORD x, WORD y, WORD dx, WORD dy, WORD w, WORD h)
+{
+    UBYTE *srow = (UBYTE *)rs->Memory + y * rs->BytesPerRow + x * 4;
+    UBYTE *drow = (UBYTE *)rt->Memory + dy * rt->BytesPerRow + dx * 4;
+
+    for (; h > 0; h--)
+    {
+        ULONG *s = (ULONG *)srow;
+        ULONG *d = (ULONG *)drow;
+        WORD n = w;
+
+        for (; n >= 8; n -= 8, s += 8, d += 8)
+            asm volatile (
+                "movem.l (%0),%%d0-%%d7\n\t"
+                "movem.l %%d0-%%d7,(%1)"
+                : : "a"(s), "a"(d) : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "memory");
+
+        for (; n > 0; n--)
+            *d++ = *s++;
+
+        srow += rs->BytesPerRow;
+        drow += rt->BytesPerRow;
+    }
+}
+
 /* BlitRectNoMaskComplete - copy a rectangle between two bitmaps, using the VPU for the big ones */
 void VC6_BlitRectNoMaskComplete(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *rs, "a1"),
                                 REGARG(struct RenderInfo *rt, "a2"),
@@ -1219,6 +1248,13 @@ void VC6_BlitRectNoMaskComplete(REGARG(struct BoardInfo *b, "a0"), REGARG(struct
 
         if (VPU_RectCopy((APTR)src, (APTR)dst, width, height, rs->BytesPerRow - width, rt->BytesPerRow - width, VC4Base) != 0)
             return;
+    }
+
+    /* The small plain copies of 32 bit pixels between two different bitmaps are done with bursts by the CPU */
+    if (minterm == 0x0C && bpp == 4 && rs->Memory != rt->Memory)
+    {
+        VC6_CopyBlock(rs, rt, x, y, dx, dy, w, h);
+        return;
     }
 
     /* OR, XOR, XNOR and AND between two bitmaps of B8G8R8A8 pixels, or between two areas of one bitmap that do
