@@ -882,9 +882,33 @@ void VC6_WaitVerticalSync(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL toggle,
     do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VC4Base->vc4_DispSize.height);
 }
 
-/* WaitBlitter - VPU calls are synchronous (mailbox), there is nothing to wait for */
+/* WaitBlitter - VPU calls are synchronous (mailbox), there is nothing to wait for.
+
+   One thing could still need a barrier here: the VPU writes the destination of a copy through the cached alias of
+   the bus (0x80000000, see VC6_BlitRect), and dirty lines of its cache could in theory reach the memory after the
+   call returned, over what the CPU wrote there meanwhile. It was looked for on the RPi4B (2026-10-04) and not seen:
+   the CPU reads the right data as soon as the call returns, a chain of 40 copies, each reading what the previous one
+   wrote, was exact, and a pattern written by the CPU over the destination right after a copy was never overwritten
+   in the 2 ms that followed (6 cases of alignment and direction, 8 copies of 1.4 to 1.6 MB each, 0 wrong longwords).
+   That is a short window and the test could not be shown able to fail, so this is "not observed", not "impossible".
+
+   If it ever shows up (stale pixels that come back after a copy), define VC6_WAITBLITTER_FLUSH: a call of an empty
+   VPU routine without the "do not flush the caches" flag (the lowest bit of the address of the routine, see
+   VPU_RectCopy) makes the firmware flush the caches of the VPU. Not tried on the hardware, and it costs a mailbox round
+   trip (about 95 us) every time, because rtg.library calls WaitBlitter after each accelerated operation. */
 void VC6_WaitBlitter(REGARG(struct BoardInfo *b, "a0"))
 {
+#ifdef VC6_WAITBLITTER_FLUSH
+    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
+    static const UBYTE vpu_rts[] = { 0x5a, 0x00 };  /* rts */
+    static ULONG vpu_nop;
+
+    if (vpu_nop == 0)
+        vpu_nop = upload_code(vpu_rts, sizeof(vpu_rts), VC4Base);
+
+    if (vpu_nop != 0)
+        call_code(vpu_nop, 0, 0, 0, 0, 0, 0, VC4Base);
+#endif
 }
 
 /* FillRect - not accelerated yet, let Picasso96 do it */
