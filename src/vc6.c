@@ -1112,6 +1112,86 @@ void VC6_BlitTemplate(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInf
         b->BlitTemplateDefault(b, r, t, x, y, w, h, mask, format);
 }
 
+/* The logical copies of BlitRectNoMaskComplete: OR (minterm 0xe), XOR (0x6), XNOR (0x9) and AND (0x8) between two
+   different bitmaps of 32 bit B8G8R8A8 pixels. This is how Picasso96 draws an icon with a mask: two XNOR and one OR
+   for each, a few thousand of them for a window moved across a dock of PowerWindowsNG, 360 us each because its own
+   routine reads the video memory one longword at a time (about 180 ns each). Here the pixels are read and written
+   by three at a time with movem.l.
+   The first three bytes of a pixel follow the operation. The last one does not, it is what Picasso96 gives (looked
+   at by comparing 20810 pixels of its routine in RAM and in the board memory): the byte of the source for OR,
+   source | destination for XOR and XNOR, and the AND like the others. */
+#define LOAD3 \
+    "movem.l (%0),%%d0-%%d2\n\t" \
+    "movem.l (%1),%%d3-%%d5\n\t"
+
+#define STORE3 \
+    "movem.l %%d3-%%d5,(%1)"
+
+#define XOR_PIXEL(s, d) \
+    "move.l %%d" #s ",%%d6\n\t" "and.l %%d" #d ",%%d6\n\t" "and.l #255,%%d6\n\t" \
+    "eor.l %%d" #s ",%%d" #d "\n\t" "or.l %%d6,%%d" #d "\n\t"
+
+#define XNOR_PIXEL(s, d) \
+    "move.l %%d" #s ",%%d6\n\t" "or.l %%d" #d ",%%d6\n\t" "and.l #255,%%d6\n\t" \
+    "eor.l %%d" #s ",%%d" #d "\n\t" "not.l %%d" #d "\n\t" "and.l #-256,%%d" #d "\n\t" "or.l %%d6,%%d" #d "\n\t"
+
+static void VC6_MintermBlit(struct RenderInfo *rs, struct RenderInfo *rt,
+                            WORD x, WORD y, WORD dx, WORD dy, WORD w, WORD h, UBYTE minterm)
+{
+    UBYTE *srow = (UBYTE *)rs->Memory + y * rs->BytesPerRow + x * 4;
+    UBYTE *drow = (UBYTE *)rt->Memory + dy * rt->BytesPerRow + dx * 4;
+
+    for (; h > 0; h--)
+    {
+        ULONG *s = (ULONG *)srow;
+        ULONG *d = (ULONG *)drow;
+        WORD n = w;
+
+        switch (minterm)
+        {
+            case 0x0e:
+                for (; n >= 3; n -= 3, s += 3, d += 3)
+                    asm volatile (LOAD3
+                        "and.l %2,%%d3\n\t" "and.l %2,%%d4\n\t" "and.l %2,%%d5\n\t"
+                        "or.l %%d0,%%d3\n\t" "or.l %%d1,%%d4\n\t" "or.l %%d2,%%d5\n\t"
+                        STORE3
+                        : : "a"(s), "a"(d), "d"(0xffffff00UL) : "d0", "d1", "d2", "d3", "d4", "d5", "cc", "memory");
+                for (; n > 0; n--, s++, d++)
+                    *d = *s | (*d & 0xffffff00);
+                break;
+
+            case 0x06:
+                for (; n >= 3; n -= 3, s += 3, d += 3)
+                    asm volatile (LOAD3 XOR_PIXEL(0, 3) XOR_PIXEL(1, 4) XOR_PIXEL(2, 5) STORE3
+                        : : "a"(s), "a"(d) : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "cc", "memory");
+                for (; n > 0; n--, s++, d++)
+                    *d = (*s ^ *d) | (*s & *d & 0xff);
+                break;
+
+            case 0x09:
+                for (; n >= 3; n -= 3, s += 3, d += 3)
+                    asm volatile (LOAD3 XNOR_PIXEL(0, 3) XNOR_PIXEL(1, 4) XNOR_PIXEL(2, 5) STORE3
+                        : : "a"(s), "a"(d) : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "cc", "memory");
+                for (; n > 0; n--, s++, d++)
+                    *d = (~(*s ^ *d) & 0xffffff00) | ((*s | *d) & 0xff);
+                break;
+
+            default:    /* 0x08 */
+                for (; n >= 3; n -= 3, s += 3, d += 3)
+                    asm volatile (LOAD3
+                        "and.l %%d0,%%d3\n\t" "and.l %%d1,%%d4\n\t" "and.l %%d2,%%d5\n\t"
+                        STORE3
+                        : : "a"(s), "a"(d) : "d0", "d1", "d2", "d3", "d4", "d5", "cc", "memory");
+                for (; n > 0; n--, s++, d++)
+                    *d &= *s;
+                break;
+        }
+
+        srow += rs->BytesPerRow;
+        drow += rt->BytesPerRow;
+    }
+}
+
 /* BlitRectNoMaskComplete - copy a rectangle between two bitmaps, using the VPU for the big ones */
 void VC6_BlitRectNoMaskComplete(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *rs, "a1"),
                                 REGARG(struct RenderInfo *rt, "a2"),
@@ -1139,6 +1219,14 @@ void VC6_BlitRectNoMaskComplete(REGARG(struct BoardInfo *b, "a0"), REGARG(struct
 
         if (VPU_RectCopy((APTR)src, (APTR)dst, width, height, rs->BytesPerRow - width, rt->BytesPerRow - width, VC4Base) != 0)
             return;
+    }
+
+    /* OR, XOR, XNOR and AND between two different bitmaps of B8G8R8A8 pixels */
+    if (format == RGBFB_B8G8R8A8 && rs->Memory != rt->Memory &&
+        (minterm == 0x0e || minterm == 0x06 || minterm == 0x09 || minterm == 0x08))
+    {
+        VC6_MintermBlit(rs, rt, x, y, dx, dy, w, h, minterm);
+        return;
     }
 
     b->BlitRectNoMaskCompleteDefault(b, rs, rt, x, y, dx, dy, w, h, minterm, format);
