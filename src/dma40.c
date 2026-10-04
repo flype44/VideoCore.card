@@ -60,7 +60,7 @@ static inline void dma_wr(ULONG chan, ULONG off, ULONG value)
     *(volatile ULONG *)(DMA_BASE + chan * 0x100 + off) = LE32(value);
 }
 
-/* gic400.library: AddIntServerEx -30, RemIntServerEx -36, GetIntStatus -42 (BOOL is 16 bit), as in vblank.c
+/* gic400.library: AddIntServerEx -30, RemIntServerEx -36, as in vblank.c
    (a call through an offset in C lost its sign with this compiler: inline asm) */
 static LONG GIC_AddIntServerEx(struct Library *base, ULONG irq, UBYTE priority, BOOL edge, struct Interrupt *interrupt)
 {
@@ -84,19 +84,6 @@ static LONG GIC_RemIntServerEx(struct Library *base, ULONG irq, struct Interrupt
     asm volatile("jsr -36(%%a6)" : "+r"(res) : "r"(a6), "r"(a1) : "d1", "a0", "cc", "memory");
 
     return res;
-}
-
-static LONG GIC_GetIntStatus(struct Library *base, ULONG irq, WORD *pending, WORD *active, WORD *enabled)
-{
-    register struct Library *a6 asm("a6") = base;
-    register ULONG d0 asm("d0") = irq;
-    register WORD *a1 asm("a1") = pending;
-    register WORD *a2 asm("a2") = active;
-    register WORD *a3 asm("a3") = enabled;
-
-    asm volatile("jsr -42(%%a6)" : "+r"(d0), "+r"(a1), "+r"(a2), "+r"(a3) : "r"(a6) : "d1", "a0", "memory", "cc");
-
-    return (LONG)d0;
 }
 
 /* Called by gic400.library at the interrupt of the channel, as a subroutine, with the VC4Base in a1 (is_Data): it
@@ -276,7 +263,6 @@ void DMA40_Init(struct VC4Base *VC4Base)
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
     ULONG chan, bus, t0, i;
     UBYTE *scratch;
-    WORD p = -1, a = -1, e = -1;
 
     d->Ok = FALSE;
 
@@ -297,12 +283,17 @@ void DMA40_Init(struct VC4Base *VC4Base)
     d->Chan = chan;
     d->Irq = DMA40_IRQ_BASE + chan;
 
+    /* END and INT of the session before, if any (it can have left them set), or the interrupt would be raised at once */
+    dma_wr(chan, DMA_CS, CS_INT | CS_END | CS_PROT);
+
     d->Gic = OpenLibrary((CONST_STRPTR)"gic400.library", 0);
     if (d->Gic == NULL)
         return;
 
-    if (d->Gic->lib_Version < 1 || (d->Gic->lib_Version == 1 && d->Gic->lib_Revision < 3) ||
-        GIC_GetIntStatus(d->Gic, d->Irq, &p, &a, &e) != 0 || p || a || e)
+    /* Whoever else uses the interrupt has a handler registered and AddIntServerEx() below refuses. What an OS restart
+       left behind is not a user: it does not reset the GIC nor the peripherals, so after a ColdReboot the id is still
+       enabled in the hardware (the same as the vertical blank, see vblank.c). Do not look at its state. */
+    if (d->Gic->lib_Version < 1 || (d->Gic->lib_Version == 1 && d->Gic->lib_Revision < 3))
     {
         CloseLibrary(d->Gic);
         d->Gic = NULL;
