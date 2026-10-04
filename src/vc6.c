@@ -1316,6 +1316,140 @@ void VC6_BlitRectNoMaskComplete(REGARG(struct BoardInfo *b, "a0"), REGARG(struct
     b->BlitRectNoMaskCompleteDefault(b, rs, rt, x, y, dx, dy, w, h, minterm, format);
 }
 
+/* BlitPlanar2Direct - a planar bitmap of Amiga memory (the icons, the gadgets, the images of the Workbench) to a direct colour
+   bitmap of 32 bit pixels. The pen of a pixel is made of the bits of its planes, the pixel is Colors[pen] of the ColorIndexMapping
+   (already in the format of the destination). Picasso96's own routine does it with generated code; here a row is converted into a
+   buffer in RAM, eight pixels from each byte of each plane with two tables of 16 entries (a nibble of a plane becomes four bytes of
+   0 or 1 that are shifted to the number of their plane and OR'ed), then written to the video memory in bursts.
+   A plane that is masked out does not count, a plane that is NULL is all zeros and a plane that is -1 is all ones, as in the
+   routine of Picasso96. Only the plain copy (minterm 0x0C), 32 bit destinations and rows of up to P2D_MAX_PIXELS pixels are done
+   here, the rest goes to the Default. The hooks run under the BoardLock: one static buffer is enough. */
+#define P2D_MAX_PIXELS 2048
+
+static const ULONG p2d_spread[16] = {
+    0x00000000, 0x00000001, 0x00000100, 0x00000101, 0x00010000, 0x00010001, 0x00010100, 0x00010101,
+    0x01000000, 0x01000001, 0x01000100, 0x01000101, 0x01010000, 0x01010001, 0x01010100, 0x01010101
+};
+
+static ULONG p2d_row[P2D_MAX_PIXELS + 8];
+
+/* One row of each plane, copied by longwords: the planes are in the Chip RAM of the Amiga, where every access costs about 1.2 us whatever
+   its width (measured: 1192 ns a byte, 621 a word, 381 a longword), so a byte is read at a third of the cost inside a longword. */
+static ULONG p2d_plane[8][P2D_MAX_PIXELS / 32 + 2];
+
+/* A row to the video memory in bursts of eight longwords: an isolated 32 bit store there costs about 100 ns, a burst of stores a few ns a
+   pixel (GCC does not emit movem.l for data, hence the asm; it is a function of its own so that its registers stay out of the loop). */
+static void p2d_store(ULONG *d, const ULONG *s, ULONG n)
+{
+    while (n >= 8)
+    {
+        asm volatile("movem.l (%1),%%d0-%%d7\n\t"
+                     "movem.l %%d0-%%d7,(%0)"
+                     : : "a"(d), "a"(s) : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "memory");
+        d += 8;
+        s += 8;
+        n -= 8;
+    }
+
+    while (n--)
+        *d++ = *s++;
+}
+
+void VC6_BlitPlanar2Direct(REGARG(struct BoardInfo *b, "a0"), REGARG(struct BitMap *bm, "a1"), REGARG(struct RenderInfo *r, "a2"),
+                           REGARG(struct ColorIndexMapping *cim, "a3"),
+                           REGARG(SHORT sx, "d0"), REGARG(SHORT sy, "d1"), REGARG(SHORT dx, "d2"), REGARG(SHORT dy, "d3"),
+                           REGARG(SHORT w, "d4"), REGARG(SHORT h, "d5"), REGARG(UBYTE minterm, "d6"), REGARG(UBYTE mask, "d7"))
+{
+    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
+    const ULONG *col = cim->Colors;
+    const UBYTE *src[8];
+    const UBYTE *row[8];
+    ULONG shift[8];
+    ULONG depth = bm->Depth, planes = 0, ones = 0, bpr = bm->BytesPerRow, lead, nbytes, p, y, i, j;
+    RGBFTYPE f = r->RGBFormat;
+
+    /* a copy of the DMA may still be running */
+    DMA40_Wait(VC4Base);
+
+    if (minterm != 0x0C || (f != RGBFB_A8R8G8B8 && f != RGBFB_A8B8G8R8 && f != RGBFB_B8G8R8A8 && f != RGBFB_R8G8B8A8) ||
+        w <= 0 || h <= 0 || sx < 0 || sy < 0 || dx < 0 || dy < 0 || depth == 0 || depth > 8 ||
+        (((ULONG)sx & 7) + (ULONG)w + 7) / 8 * 8 > P2D_MAX_PIXELS)
+    {
+        b->BlitPlanar2DirectDefault(b, bm, r, cim, sx, sy, dx, dy, w, h, minterm, mask);
+        return;
+    }
+
+    lead = (ULONG)sx & 7;
+    nbytes = (lead + (ULONG)w + 7) / 8;
+
+    /* the planes that count: not masked out, not NULL (zeros), not -1 (ones: a constant of every pen) */
+    for (p = 0; p < depth; p++)
+    {
+        const UBYTE *pl = (const UBYTE *)bm->Planes[p];
+
+        if (!((mask >> p) & 1) || pl == NULL)
+            continue;
+
+        if ((ULONG)pl == 0xffffffffUL)
+        {
+            ones |= 1UL << p;
+            continue;
+        }
+
+        src[planes] = pl + (ULONG)sy * bpr + ((ULONG)sx >> 3);
+        shift[planes] = p;
+        planes++;
+    }
+
+    ones *= 0x01010101UL;
+
+    for (y = 0; y < (ULONG)h; y++)
+    {
+        ULONG *out = p2d_row;
+        ULONG *d = (ULONG *)((ULONG)r->Memory + ((ULONG)dy + y) * r->BytesPerRow + (ULONG)dx * 4);
+
+        for (j = 0; j < planes; j++)
+        {
+            const ULONG *from = (const ULONG *)((ULONG)src[j] & ~3UL);
+            ULONG skew = (ULONG)src[j] & 3, n = (skew + nbytes + 3) >> 2, k;
+
+            for (k = 0; k < n; k++)
+                p2d_plane[j][k] = from[k];
+
+            row[j] = (const UBYTE *)p2d_plane[j] + skew;
+        }
+
+        for (i = 0; i < nbytes; i++)
+        {
+            ULONG hi = ones, lo = ones;
+
+            for (j = 0; j < planes; j++)
+            {
+                ULONG v = row[j][i];
+
+                hi |= p2d_spread[v >> 4] << shift[j];
+                lo |= p2d_spread[v & 15] << shift[j];
+            }
+
+            out[0] = col[hi >> 24];
+            out[1] = col[(hi >> 16) & 255];
+            out[2] = col[(hi >> 8) & 255];
+            out[3] = col[hi & 255];
+            out[4] = col[lo >> 24];
+            out[5] = col[(lo >> 16) & 255];
+            out[6] = col[(lo >> 8) & 255];
+            out[7] = col[lo & 255];
+            out += 8;
+        }
+
+        /* in bursts to the video memory */
+        p2d_store(d, p2d_row + lead, (ULONG)w);
+
+        for (j = 0; j < planes; j++)
+            src[j] += bpr;
+    }
+}
+
 /* Unicam DisplayList */
 void VC6_ConstructUnicamDL(struct VC4Base *VC4Base)
 {

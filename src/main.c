@@ -554,7 +554,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         //bi->UpdatePlanar = (void *)NULL;
 
         //bi->BlitPlanar2Chunky = (void *)BlitPlanar2Chunky;
-        //bi->BlitPlanar2Direct = (void *)BlitPlanar2Direct;
+        bi->BlitPlanar2Direct = (void *)VC6_BlitPlanar2Direct;
 
         bi->FillRect = (void *)VC6_FillRect;
         bi->InvertRect = (void *)VC6_InvertRect;
