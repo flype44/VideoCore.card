@@ -705,6 +705,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     VC4Base->vc4_Kernel_C = 0x3f400000; // 0.75
     VC4Base->vc4_IntegerScaler = 0;
     VC4Base->vc4_VPUMinSize = 65536;    // bytes (w * bpp * h), the VPU wins from about 64 KB
+    VC4Base->vc4_VPUCopyMin = 32768;    // same for the copies between two bitmaps, which the VPU does faster than BlitRect
 
     APTR UnicamBase = VC4Base->vc4_UnicamBase;
 
@@ -768,6 +769,22 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
             VC4Base->vc4_VPUMinSize = num;
             bug("[VC] Setting minimum VPU blit size to %ld bytes\n", num);
+        }
+        else if (_strcmp(tt, "VC4_VPU_COPYMIN") == '=')
+        {
+            /* Copies between two bitmaps smaller than this number of bytes are done by the CPU */
+            const char *c = &tt[16];
+            ULONG num = 0;
+
+            while (*c) {
+                if (*c < '0' || *c > '9')
+                    break;
+
+                num = num * 10 + (*c++ - '0');
+            }
+
+            VC4Base->vc4_VPUCopyMin = num;
+            bug("[VC] Setting minimum VPU copy size between bitmaps to %ld bytes\n", num);
         }
         else if (_strcmp(tt, "VC4_SCALER") == '=')
         {

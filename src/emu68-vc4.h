@@ -65,6 +65,7 @@ struct VC4Base {
     ULONG                   vc4_VPUCopyRect;
     ULONG                   vc4_VPUCopyRectRev;
     ULONG                   vc4_VPUMinSize;
+    ULONG                   vc4_VPUCopyMin;
 
     ULONG                   vc4_ActivePlane;
     ULONG                   vc4_FreePlane;

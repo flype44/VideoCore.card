@@ -1112,7 +1112,7 @@ void VC6_BlitTemplate(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInf
         b->BlitTemplateDefault(b, r, t, x, y, w, h, mask, format);
 }
 
-/* BlitRectNoMaskComplete - not accelerated yet, let Picasso96 do it */
+/* BlitRectNoMaskComplete - copy a rectangle between two bitmaps, using the VPU for the big ones */
 void VC6_BlitRectNoMaskComplete(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *rs, "a1"),
                                 REGARG(struct RenderInfo *rt, "a2"),
                                 REGARG(WORD x, "d0"), REGARG(WORD y, "d1"),
@@ -1120,6 +1120,27 @@ void VC6_BlitRectNoMaskComplete(REGARG(struct BoardInfo *b, "a0"), REGARG(struct
                                 REGARG(WORD w, "d4"), REGARG(WORD h, "d5"),
                                 REGARG(UBYTE minterm, "d6"), REGARG(RGBFTYPE format, "d7"))
 {
+    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
+    ULONG bpp = bpp_table[format];
+    ULONG width = w * bpp;
+    ULONG height = h;
+
+    /* Only plain copies between two different bitmaps located in the memory visible to the VPU can be
+       handled (a copy inside a bitmap is BlitRect's, and the Default of Picasso96 sends it there), and
+       small rectangles are cheaper to copy by the CPU than a mailbox round trip. Two different bitmaps
+       never overlap: the destination goes through the cached alias of the bus, as in VC6_BlitRect(). */
+    if (minterm == 0x0C && width * height >= VC4Base->vc4_VPUCopyMin &&
+        (ULONG)rs->Memory >= 0x01000000 && (ULONG)rs->Memory < 0x40000000 &&
+        (ULONG)rt->Memory >= 0x01000000 && (ULONG)rt->Memory < 0x40000000 &&
+        rs->Memory != rt->Memory)
+    {
+        ULONG src = 0xc0000000 + (ULONG)rs->Memory + y * rs->BytesPerRow + x * bpp;
+        ULONG dst = 0x80000000 + (ULONG)rt->Memory + dy * rt->BytesPerRow + dx * bpp;
+
+        if (VPU_RectCopy((APTR)src, (APTR)dst, width, height, rs->BytesPerRow - width, rt->BytesPerRow - width, VC4Base) != 0)
+            return;
+    }
+
     b->BlitRectNoMaskCompleteDefault(b, rs, rt, x, y, dx, dy, w, h, minterm, format);
 }
 
