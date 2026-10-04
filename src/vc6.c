@@ -1221,8 +1221,10 @@ void VC6_BlitRectNoMaskComplete(REGARG(struct BoardInfo *b, "a0"), REGARG(struct
             return;
     }
 
-    /* OR, XOR, XNOR and AND between two different bitmaps of B8G8R8A8 pixels */
-    if (format == RGBFB_B8G8R8A8 && rs->Memory != rt->Memory &&
+    /* OR, XOR, XNOR and AND between two bitmaps of B8G8R8A8 pixels, or between two areas of one bitmap that do
+       not overlap (the icons of a dock are drawn like that: the OR of Picasso96's three calls) */
+    if (format == RGBFB_B8G8R8A8 &&
+        (rs->Memory != rt->Memory || x + w <= dx || dx + w <= x || y + h <= dy || dy + h <= y) &&
         (minterm == 0x0e || minterm == 0x06 || minterm == 0x09 || minterm == 0x08))
     {
         VC6_MintermBlit(rs, rt, x, y, dx, dy, w, h, minterm);
