@@ -52,6 +52,9 @@ struct DMA40 {
     struct Task *           Task;           /* the task which started it and sleeps in DMA40_Wait() */
     volatile ULONG          SigMask;
     LONG                    SigBit;
+    ULONG                   PostAddr[2];    /* what DMA40_Wait() hands to CachePostDMA(): source and destination of the transfer */
+    ULONG                   PostLen[2];     /* 0 = nothing to do */
+    ULONG                   PostFlags[2];
 };
 
 struct VC4Base {

@@ -7,10 +7,17 @@
    CPU) if anything is missing */
 void DMA40_Init(struct VC4Base *VC4Base);
 
-/* Copies the rectangle of `width` bytes and `height` rows, `pitch` bytes apart, from the physical address `src` to `dst`
-   (the same pitch for both). Returns FALSE and does nothing when the DMA cannot or should not take it (the caller then
-   uses the VPU or the CPU); TRUE when the transfer is running: it is over only after DMA40_Wait() */
-BOOL DMA40_CopyRect(struct VC4Base *VC4Base, ULONG src, ULONG dst, ULONG width, ULONG height, ULONG pitch);
+/* Flags of DMA40_CopyRect() */
+#define DMA40F_MOVE         (1UL << 0)  /* the areas may overlap (a scroll inside one bitmap): the pitches must be equal */
+#define DMA40F_SRC_CACHED   (1UL << 1)  /* the source is in RAM that the CPU caches (a bitmap in RAM, not the RTG memory) */
+#define DMA40F_DST_CACHED   (1UL << 2)  /* the same for the destination */
+
+/* Copies the rectangle of `width` bytes and `height` rows from the physical address `src` (rows `srcpitch` bytes apart)
+   to `dst` (rows `dstpitch` apart). Without DMA40F_MOVE the two areas must not overlap at all (two different bitmaps).
+   Returns FALSE and does nothing when the DMA cannot or should not take it (the caller then uses the VPU or the CPU);
+   TRUE when the transfer is running: it is over only after DMA40_Wait() */
+BOOL DMA40_CopyRect(struct VC4Base *VC4Base, ULONG src, ULONG dst, ULONG width, ULONG height,
+                    ULONG srcpitch, ULONG dstpitch, ULONG flags);
 
 /* Waits for the running transfer: sleeps until the interrupt of the channel, does nothing when none runs */
 void DMA40_Wait(struct VC4Base *VC4Base);

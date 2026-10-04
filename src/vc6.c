@@ -961,7 +961,7 @@ void VC6_BlitRect(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *r
        neither a mask nor a shift to the side by less than the width, which the VPU or the CPU do below. */
     if (mask == 0xff && VC4Base->vc4_DMA.Ok && width * height >= VC4Base->vc4_DMA.Min &&
         (ULONG)r->Memory >= 0x01000000 && (ULONG)r->Memory < 0x40000000 &&
-        DMA40_CopyRect(VC4Base, srcp, dstp, width, height, stride))
+        DMA40_CopyRect(VC4Base, srcp, dstp, width, height, stride, stride, DMA40F_MOVE))
         return;
 
     /* Only bitmaps located in the memory visible to the VPU can be handled, and
@@ -1254,6 +1254,31 @@ void VC6_BlitRectNoMaskComplete(REGARG(struct BoardInfo *b, "a0"), REGARG(struct
     ULONG bpp = bpp_table[format];
     ULONG width = w * bpp;
     ULONG height = h;
+
+    /* One transfer of the DMA at a time, and nothing else may touch the bitmaps before it is over */
+    DMA40_Wait(VC4Base);
+
+    /* The DMA takes the plain copies between two different bitmaps (they never overlap) from VC6_DMA_THRESHOLD bytes, the task
+       asleep in WaitBlitter. A bitmap that is not in the RTG memory is in RAM, which the CPU caches: DMA40_CopyRect() does the
+       cache maintenance for it. */
+    if (minterm == 0x0C && VC4Base->vc4_DMA.Ok && width * height >= VC4Base->vc4_DMA.Min &&
+        (ULONG)rs->Memory >= 0x01000000 && (ULONG)rs->Memory < 0x40000000 &&
+        (ULONG)rt->Memory >= 0x01000000 && (ULONG)rt->Memory < 0x40000000 &&
+        rs->Memory != rt->Memory)
+    {
+        ULONG board = (ULONG)b->MemoryBase, board_end = board + b->MemorySize;
+        ULONG flags = 0;
+
+        if ((ULONG)rs->Memory < board || (ULONG)rs->Memory >= board_end)
+            flags |= DMA40F_SRC_CACHED;
+        if ((ULONG)rt->Memory < board || (ULONG)rt->Memory >= board_end)
+            flags |= DMA40F_DST_CACHED;
+
+        if (DMA40_CopyRect(VC4Base, (ULONG)rs->Memory + y * rs->BytesPerRow + x * bpp,
+                           (ULONG)rt->Memory + dy * rt->BytesPerRow + dx * bpp,
+                           width, height, rs->BytesPerRow, rt->BytesPerRow, flags))
+            return;
+    }
 
     /* Only plain copies between two different bitmaps located in the memory visible to the VPU can be
        handled (a copy inside a bitmap is BlitRect's, and the Default of Picasso96 sends it there), and

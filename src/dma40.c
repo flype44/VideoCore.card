@@ -123,23 +123,44 @@ static void DMA40_Abort(struct DMA40 *d)
     dma_wr(d->Chan, DMA_DEBUG, dma_rd(d->Chan, DMA_DEBUG) | DEBUG_RESET);
 }
 
-/* Builds the chain of the rectangle and starts the channel. `src`, `dst` are physical, `pitch` is the distance of the
-   rows of both. The destination above the source: the rows, and the blocks of a row, go from the last to the first, or
-   a block would overwrite source bytes that a later one still has to read (the caller has excluded an overlap inside
-   a row). */
-static void DMA40_Start(struct VC4Base *VC4Base, ULONG src, ULONG dst, ULONG width, ULONG height, ULONG pitch)
+/* The data cache of the CPU is not coherent with the DMA: for a bitmap in RAM, write the dirty lines before the transfer and
+   drop the lines of what the DMA wrote after it (the RTG memory needs neither). CachePreDMA() gives back the length of the
+   contiguous piece it handled: loop until the area is done. */
+static void DMA40_CachePre(struct ExecBase *SysBase, ULONG addr, ULONG bytes, ULONG flags)
+{
+    ULONG first = 1;
+
+    while (bytes)
+    {
+        LONG l = bytes;
+
+        CachePreDMA((APTR)addr, &l, flags | (first ? 0 : DMA_Continue));
+        first = 0;
+
+        if (l <= 0 || (ULONG)l > bytes)
+            break;
+
+        addr += l;
+        bytes -= l;
+    }
+}
+
+/* Builds the chain of the rectangle and starts the channel. `src`, `dst` are physical. With `reverse` (a move whose
+   destination is above the source) the rows, and the blocks of a row, go from the last to the first, or a block would
+   overwrite source bytes that a later one still has to read (the caller has excluded an overlap inside a row). */
+static void DMA40_Start(struct VC4Base *VC4Base, ULONG src, ULONG dst, ULONG width, ULONG height,
+                        ULONG srcpitch, ULONG dstpitch, BOOL reverse)
 {
     struct DMA40 *d = &VC4Base->vc4_DMA;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
     ULONG *cb = (ULONG *)d->CbPhys;
-    BOOL reverse = dst > src;
     ULONG k = 0, y, part;
 
     for (y = 0; y < height; y++)
     {
         ULONG ry = reverse ? height - 1 - y : y;
-        ULONG s = src + ry * pitch;
-        ULONG t = dst + ry * pitch;
+        ULONG s = src + ry * srcpitch;
+        ULONG t = dst + ry * dstpitch;
         ULONG head = (0 - t) & 15, body, tail, off[3], len[3];
 
         if (head > width)
@@ -195,6 +216,7 @@ void DMA40_Wait(struct VC4Base *VC4Base)
 {
     struct DMA40 *d = &VC4Base->vc4_DMA;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    ULONG i;
 
     if (!d->Pending)
         return;
@@ -222,26 +244,48 @@ void DMA40_Wait(struct VC4Base *VC4Base)
         }
     }
 
+    /* What the DMA wrote is in the memory, not in the data cache */
+    for (i = 0; i < 2; i++)
+    {
+        if (d->PostLen[i])
+        {
+            LONG l = d->PostLen[i];
+
+            CachePostDMA((APTR)d->PostAddr[i], &l, d->PostFlags[i]);
+            d->PostLen[i] = 0;
+        }
+    }
+
     d->SigMask = 0;
     d->Pending = FALSE;
 }
 
-BOOL DMA40_CopyRect(struct VC4Base *VC4Base, ULONG src, ULONG dst, ULONG width, ULONG height, ULONG pitch)
+BOOL DMA40_CopyRect(struct VC4Base *VC4Base, ULONG src, ULONG dst, ULONG width, ULONG height,
+                    ULONG srcpitch, ULONG dstpitch, ULONG flags)
 {
     struct DMA40 *d = &VC4Base->vc4_DMA;
+    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
     LONG gap = (LONG)dst - (LONG)src;
 
     if (!d->Ok)
         return FALSE;
 
-    if (width == 0 || height == 0 || height > DMA40_MAX_ROWS || ((width | src | dst | pitch) & 3) || pitch < width)
+    if (width == 0 || height == 0 || height > DMA40_MAX_ROWS || ((width | src | dst | srcpitch | dstpitch) & 3) ||
+        srcpitch < width || dstpitch < width)
         return FALSE;
 
-    /* Source and destination overlapping inside a row (a shift to the side by less than the width) is not for the DMA:
-       a shift to the left by 8 bytes froze the machine in the video memory, and the order of the reads and writes of
-       one row is not guaranteed. A move by whole rows (a scroll) never does. */
-    if (gap > -(LONG)width && gap < (LONG)width)
-        return FALSE;
+    if (flags & DMA40F_MOVE)
+    {
+        /* A move inside one bitmap: the rows are the same distance apart. Source and destination overlapping inside a row
+           (a shift to the side by less than the width) is not for the DMA: a shift to the left by 8 bytes froze the machine
+           in the video memory (at 2.2 GHz), and the order of the reads and writes of one row is not guaranteed. A move by
+           whole rows (a scroll) never does. */
+        if (srcpitch != dstpitch)
+            return FALSE;
+
+        if (gap > -(LONG)width && gap < (LONG)width)
+            return FALSE;
+    }
 
     /* One transfer at a time */
     DMA40_Wait(VC4Base);
@@ -249,7 +293,23 @@ BOOL DMA40_CopyRect(struct VC4Base *VC4Base, ULONG src, ULONG dst, ULONG width, 
     if (!d->Ok)
         return FALSE;
 
-    DMA40_Start(VC4Base, src, dst, width, height, pitch);
+    if (flags & DMA40F_SRC_CACHED)
+    {
+        d->PostAddr[0] = src;
+        d->PostLen[0] = (height - 1) * srcpitch + width;
+        d->PostFlags[0] = DMA_ReadFromRAM;
+        DMA40_CachePre(SysBase, d->PostAddr[0], d->PostLen[0], DMA_ReadFromRAM);
+    }
+
+    if (flags & DMA40F_DST_CACHED)
+    {
+        d->PostAddr[1] = dst;
+        d->PostLen[1] = (height - 1) * dstpitch + width;
+        d->PostFlags[1] = 0;
+        DMA40_CachePre(SysBase, d->PostAddr[1], d->PostLen[1], 0);
+    }
+
+    DMA40_Start(VC4Base, src, dst, width, height, srcpitch, dstpitch, (flags & DMA40F_MOVE) && dst > src);
 
     return TRUE;
 }
@@ -337,7 +397,7 @@ void DMA40_Init(struct VC4Base *VC4Base)
 
     CacheClearE(scratch, 2 * DMA40_SELFTEST, CACRF_ClearD);
 
-    DMA40_Start(VC4Base, (ULONG)scratch, (ULONG)scratch + DMA40_SELFTEST, DMA40_SELFTEST, 1, DMA40_SELFTEST);
+    DMA40_Start(VC4Base, (ULONG)scratch, (ULONG)scratch + DMA40_SELFTEST, DMA40_SELFTEST, 1, DMA40_SELFTEST, DMA40_SELFTEST, FALSE);
 
     t0 = DMA_TIMER();
     while (d->Count < d->Target && DMA_TIMER() - t0 < 50000)
