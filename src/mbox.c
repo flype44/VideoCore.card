@@ -341,6 +341,53 @@ uint32_t upload_code(const void * code, uint32_t code_size, struct VC4Base *VC4B
     return phys_addr;
 }
 
+/* A block of memory of the VideoCore, uncached and coherent, locked for good. Returns its address in the VPU's view
+   (the bus address with the alias bits: the CPU view is that address & 0x3fffffff), 0 on a failure. */
+uint32_t vc_alloc_locked(uint32_t size, uint32_t align, struct VC4Base *VC4Base)
+{
+    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    ULONG *FBReq = VC4Base->vc4_Request;
+    ULONG handle;
+    ULONG len = 9 * 4;
+
+    FBReq[0] = LE32(4*9);
+    FBReq[1] = 0;
+    FBReq[2] = LE32(0x3000c);
+    FBReq[3] = LE32(12);
+    FBReq[4] = 0;
+    FBReq[5] = LE32(size);
+    FBReq[6] = LE32(align);
+    FBReq[7] = LE32((3 << 2) | (1 << 6));   // COHERENT | DIRECT | HINT_PERMALOCK
+    FBReq[8] = 0;
+
+    CachePreDMA(FBReq, &len, 0);
+    mbox_send(8, (ULONG)FBReq, VC4Base);
+    mbox_recv(8, VC4Base);
+    CachePostDMA(FBReq, &len, 0);
+
+    handle = LE32(FBReq[5]);
+
+    if (handle == 0)
+        return 0;
+
+    FBReq[0] = LE32(4*7);
+    FBReq[1] = 0;
+    FBReq[2] = LE32(0x0003000d);
+    FBReq[3] = LE32(4);
+    FBReq[4] = 0;
+    FBReq[5] = LE32(handle);
+    FBReq[6] = 0;
+
+    len = 7 * 4;
+
+    CachePreDMA(FBReq, &len, 0);
+    mbox_send(8, (ULONG)FBReq, VC4Base);
+    mbox_recv(8, VC4Base);
+    CachePostDMA(FBReq, &len, 0);
+
+    return LE32(FBReq[5]);
+}
+
 void call_code(uint32_t addr, uint32_t arg0, uint32_t arg1, uint32_t arg2, uint32_t arg3,
                uint32_t arg4, uint32_t arg5, struct VC4Base *VC4Base)
 {

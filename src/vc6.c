@@ -20,6 +20,7 @@
 #include "mbox.h"
 #include "buddyalloc.h"
 #include "vpu.h"
+#include "dma40.h"
 
 UWORD VC6_CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD width, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
@@ -887,7 +888,8 @@ void VC6_WaitVerticalSync(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL toggle,
     do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VC4Base->vc4_DispSize.height);
 }
 
-/* WaitBlitter - VPU calls are synchronous (mailbox), there is nothing to wait for.
+/* WaitBlitter - VPU calls are synchronous (mailbox), there is nothing to wait for, except a copy of the DMA (the
+   rectangles of BlitRect, see dma40.c): that one runs on after its hook returned, and the task sleeps here until it is over.
 
    One thing could still need a barrier here: the VPU writes the destination of a copy through the cached alias of
    the bus (0x80000000, see VC6_BlitRect), and dirty lines of its cache could in theory reach the memory after the
@@ -903,6 +905,10 @@ void VC6_WaitVerticalSync(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL toggle,
    trip (about 95 us) every time, because rtg.library calls WaitBlitter after each accelerated operation. */
 void VC6_WaitBlitter(REGARG(struct BoardInfo *b, "a0"))
 {
+    /* A copy of the DMA runs on after its hook returned: rtg.library calls this right after each accelerated
+       operation, the task sleeps here until the interrupt of the channel */
+    DMA40_Wait((struct VC4Base *)b->CardBase);
+
 #ifdef VC6_WAITBLITTER_FLUSH
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     static const UBYTE vpu_rts[] = { 0x5a, 0x00 };  /* rts */
@@ -947,6 +953,16 @@ void VC6_BlitRect(REGARG(struct BoardInfo *b, "a0"), REGARG(struct RenderInfo *r
     ULONG dst = ((gap > -64 && gap < 64) ? 0xc0000000 : 0x80000000) + dstp;
     ULONG height = h;
     ULONG width = w * bpp;
+
+    /* One transfer of the DMA at a time, and nothing else may touch the bitmap before it is over */
+    DMA40_Wait(VC4Base);
+
+    /* The DMA copies the rectangle without the 68k (it sleeps in WaitBlitter): a scroll, or any move by whole rows. It takes
+       neither a mask nor a shift to the side by less than the width, which the VPU or the CPU do below. */
+    if (mask == 0xff && VC4Base->vc4_DMA.Ok && width * height >= VC4Base->vc4_DMA.Min &&
+        (ULONG)r->Memory >= 0x01000000 && (ULONG)r->Memory < 0x40000000 &&
+        DMA40_CopyRect(VC4Base, srcp, dstp, width, height, stride))
+        return;
 
     /* Only bitmaps located in the memory visible to the VPU can be handled, and
        small rectangles are cheaper to copy by the CPU than a mailbox round trip */

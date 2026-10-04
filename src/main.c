@@ -31,6 +31,7 @@
 #include "vc6.h"
 #include "unicam.h"
 #include "buddyalloc.h"
+#include "dma40.h"
 
 int __attribute__((no_reorder)) _start()
 {
@@ -706,6 +707,8 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     VC4Base->vc4_IntegerScaler = 0;
     VC4Base->vc4_VPUMinSize = 65536;    // bytes (w * bpp * h), the VPU wins from about 64 KB
     VC4Base->vc4_VPUCopyMin = 32768;    // same for the copies between two bitmaps, which the VPU does faster than BlitRect
+    VC4Base->vc4_DMA.Enabled = TRUE;    // the DMA copies the rectangles of BlitRect from this size, if it proves itself at start
+    VC4Base->vc4_DMA.Min = 32768;
 
     APTR UnicamBase = VC4Base->vc4_UnicamBase;
 
@@ -785,6 +788,28 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
             VC4Base->vc4_VPUCopyMin = num;
             bug("[VC] Setting minimum VPU copy size between bitmaps to %ld bytes\n", num);
+        }
+        else if (_strcmp(tt, "VC6_DMA_ENABLE") == '=')
+        {
+            /* VC6_DMA_ENABLE=No keeps the copies of rectangles on the VPU and the CPU */
+            if (tt[15] == 'N' || tt[15] == 'n' || tt[15] == '0')
+                VC4Base->vc4_DMA.Enabled = FALSE;
+        }
+        else if (_strcmp(tt, "VC6_DMA_THRESHOLD") == '=')
+        {
+            /* Rectangles smaller than this number of bytes are not sent to the DMA */
+            const char *c = &tt[18];
+            ULONG num = 0;
+
+            while (*c) {
+                if (*c < '0' || *c > '9')
+                    break;
+
+                num = num * 10 + (*c++ - '0');
+            }
+
+            VC4Base->vc4_DMA.Min = num;
+            bug("[VC] Setting DMA threshold to %ld bytes\n", num);
         }
         else if (_strcmp(tt, "VC4_SCALER") == '=')
         {
@@ -1007,6 +1032,10 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     );
 
     VC4Base->vc4_SpriteShape = AllocMem(MAXSPRITEWIDTH * MAXSPRITEHEIGHT, MEMF_FAST | MEMF_REVERSE | MEMF_CLEAR);
+
+    /* The DMA of the BCM2711 (VC6 only): proves itself, or leaves everything on the VPU and the CPU */
+    if (VC4Base->vc4_VideoCore6)
+        DMA40_Init(VC4Base);
 
     bug("[VC] InitCard ready\n");
 

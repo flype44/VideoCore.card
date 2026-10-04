@@ -3,6 +3,7 @@
 
 #include <exec/types.h>
 #include <exec/libraries.h>
+#include <exec/interrupts.h>
 
 #include <dos/dos.h>
 #include <intuition/intuitionbase.h>
@@ -33,6 +34,24 @@ enum SwitchMode {
     DTR,
     SEL,
     CSI,
+};
+
+/* The 40 bit DMA channel that copies rectangles, see dma40.c */
+struct DMA40 {
+    BOOL                    Enabled;        /* ToolType VC6_DMA_ENABLE */
+    BOOL                    Ok;             /* started and proven by the self test */
+    ULONG                   Min;            /* smallest rectangle (bytes) sent to the DMA, ToolType VC6_DMA_THRESHOLD */
+    ULONG                   Chan;
+    ULONG                   Irq;
+    struct Library *        Gic;
+    ULONG                   CbPhys;         /* control blocks, physical address (the CPU sees it at the same address) */
+    struct Interrupt        Int;
+    volatile ULONG          Count;          /* interrupts seen */
+    volatile ULONG          Target;         /* the transfer that runs is over when Count reaches it */
+    volatile BOOL           Pending;
+    struct Task *           Task;           /* the task which started it and sleeps in DMA40_Wait() */
+    volatile ULONG          SigMask;
+    LONG                    SigBit;
 };
 
 struct VC4Base {
@@ -66,6 +85,7 @@ struct VC4Base {
     ULONG                   vc4_VPUCopyRectRev;
     ULONG                   vc4_VPUMinSize;
     ULONG                   vc4_VPUCopyMin;
+    struct DMA40            vc4_DMA;
 
     ULONG                   vc4_ActivePlane;
     ULONG                   vc4_FreePlane;

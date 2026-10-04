@@ -1,0 +1,18 @@
+#ifndef _DMA40_H
+#define _DMA40_H
+
+#include "emu68-vc4.h"
+
+/* Starts the DMA40 channel and proves it with a self test; leaves vc4_DMA.Ok FALSE (and the driver on the VPU and the
+   CPU) if anything is missing */
+void DMA40_Init(struct VC4Base *VC4Base);
+
+/* Copies the rectangle of `width` bytes and `height` rows, `pitch` bytes apart, from the physical address `src` to `dst`
+   (the same pitch for both). Returns FALSE and does nothing when the DMA cannot or should not take it (the caller then
+   uses the VPU or the CPU); TRUE when the transfer is running: it is over only after DMA40_Wait() */
+BOOL DMA40_CopyRect(struct VC4Base *VC4Base, ULONG src, ULONG dst, ULONG width, ULONG height, ULONG pitch);
+
+/* Waits for the running transfer: sleeps until the interrupt of the channel, does nothing when none runs */
+void DMA40_Wait(struct VC4Base *VC4Base);
+
+#endif /* _DMA40_H */

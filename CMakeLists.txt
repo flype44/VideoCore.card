@@ -22,6 +22,7 @@ add_executable(VideoCore.card
     src/unicam.c
     src/buddyalloc.c
     src/vpu.c
+    src/dma40.c
 )
 
 target_include_directories(VideoCore.card PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
