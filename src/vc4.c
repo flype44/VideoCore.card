@@ -647,8 +647,8 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
             cnt = mouse_pos + 1;
 
             VC4Base->vc4_MouseCoord = &displist[cnt];
-            wr32le(&displist[cnt++], POS0_X(offset_x + 0x10000 * (VC4Base->vc4_MouseX - x_offset) / VC4Base->vc4_ScaleX) |
-                                     POS0_Y(offset_y + 0x10000 * (VC4Base->vc4_MouseY - y_offset) / VC4Base->vc4_ScaleY) | POS0_ALPHA(0xff));
+            wr32le(&displist[cnt++], POS0_X(offset_x + 0x10000 * (VC4Base->vc4_MouseX - x_offset) / (LONG)VC4Base->vc4_ScaleX) |
+                                     POS0_Y(offset_y + 0x10000 * (VC4Base->vc4_MouseY - y_offset) / (LONG)VC4Base->vc4_ScaleY) | POS0_ALPHA(0xff));
             wr32le(&displist[cnt++], POS1_H(sprite_height) | POS1_W(sprite_width));
             wr32le(&displist[cnt++], POS2_H(MAXSPRITEHEIGHT) | POS2_W(MAXSPRITEWIDTH) | (SCALER_POS2_ALPHA_MODE_PIPELINE << SCALER_POS2_ALPHA_MODE_SHIFT));
             wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
@@ -893,12 +893,12 @@ void SetSprite(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable, "d0"), REG
         LONG _y;
 
         if (VC4Base->vc4_ScaleX)
-            _x = 0x10000 * VC4Base->vc4_MouseX / VC4Base->vc4_ScaleX;
+            _x = 0x10000 * VC4Base->vc4_MouseX / (LONG)VC4Base->vc4_ScaleX;
         else
             _x = VC4Base->vc4_MouseX;
 
         if (VC4Base->vc4_ScaleY)
-            _y = 0x10000 * VC4Base->vc4_MouseY / VC4Base->vc4_ScaleX;
+            _y = 0x10000 * VC4Base->vc4_MouseY / (LONG)VC4Base->vc4_ScaleX;
         else
             _y = VC4Base->vc4_MouseY;
 
@@ -934,12 +934,12 @@ void SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0"),
     LONG _y;
 
     if (VC4Base->vc4_ScaleX)
-        _x = 0x10000 * x / VC4Base->vc4_ScaleX;
+        _x = 0x10000 * x / (LONG)VC4Base->vc4_ScaleX;
     else
         _x = x;
 
     if (VC4Base->vc4_ScaleY)
-        _y = 0x10000 * y / VC4Base->vc4_ScaleY;
+        _y = 0x10000 * y / (LONG)VC4Base->vc4_ScaleY;
     else
         _y = y;
 
