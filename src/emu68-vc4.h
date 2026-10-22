@@ -116,6 +116,12 @@ struct VC4Base {
     BOOL                    vc4_UseDPMS;
     LONG                    vc4_DisplayID;
     ULONG                   vc4_DisplayNum;
+
+    UBYTE                   vc4_UseVBlank;
+    APTR                    vc4_GIC400Base;
+    ULONG                   vc4_VBlankIrq;
+    struct Interrupt *      vc4_VBlankInterrupt;
+    volatile ULONG          vc4_VBlankCount;
 };
 
 void bug(const char * restrict format, ...);
