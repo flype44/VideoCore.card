@@ -756,12 +756,20 @@ void VC6_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE forma
     for (int i=0; i < MAXSPRITEWIDTH * MAXSPRITEHEIGHT; i++)
         VC4Base->vc4_SpriteShape[i] = 0;
 
-    if ((b->Flags & (BIF_HIRESSPRITE | BIF_BIGSPRITE)) == 0)
+    /* The same choice of format as rtg.library: the image is doubled only with BIGSPRITE alone, HIRESSPRITE
+       (with or without BIGSPRITE) has 32 pixels per line. MouseHeight is the height on the display. */
+    ULONG sprite_mode = b->Flags & (BIF_HIRESSPRITE | BIF_BIGSPRITE);
+    UWORD height = b->MouseHeight;
+
+    if (height > MAXSPRITEHEIGHT)
+        height = MAXSPRITEHEIGHT;
+
+    if (sprite_mode == 0)
     {
         UWORD *data = b->MouseImage;
         data += 2;
 
-        for (int y=0; y < b->MouseHeight; y++) {
+        for (int y=0; y < height; y++) {
             UWORD p0 = *data++;
             UWORD p1 = *data++;
             UWORD mask = 0x8000;
@@ -774,11 +782,12 @@ void VC6_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE forma
             }
         }
     }
-    else if (b->Flags & BIF_BIGSPRITE) {
+    else if (sprite_mode == BIF_BIGSPRITE) {
         UWORD *data = b->MouseImage;
         data += 2;
 
-        for (int y=0; y < b->MouseHeight; y++) {
+        /* Every line of the image is drawn twice: the image has half of the height */
+        for (int y=0; y < height / 2; y++) {
             UWORD p0 = *data++;
             UWORD p1 = *data++;
             UWORD mask = 0x8000;
@@ -794,11 +803,11 @@ void VC6_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE forma
             }
         }
     }
-    else if (b->Flags & BIF_HIRESSPRITE) {
+    else {
         ULONG *data = (ULONG*)b->MouseImage;
         data += 2;
 
-        for (int y=0; y < b->MouseHeight; y++) {
+        for (int y=0; y < height; y++) {
             ULONG p0 = *data++;
             ULONG p1 = *data++;
             ULONG mask = 0x80000000;
