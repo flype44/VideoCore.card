@@ -122,6 +122,8 @@ struct VC4Base {
     ULONG                   vc4_VBlankIrq;
     struct Interrupt *      vc4_VBlankInterrupt;
     volatile ULONG          vc4_VBlankCount;
+    volatile ULONG          vc4_SpriteWord;
+    volatile UBYTE          vc4_SpritePending;
 };
 
 void bug(const char * restrict format, ...);

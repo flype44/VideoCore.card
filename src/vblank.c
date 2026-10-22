@@ -88,6 +88,7 @@ static ULONG VBlank_Interrupt(REGARG(struct BoardInfo *bi, "a1"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)bi->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    BOOL waiting;
 
     if ((PV_Read(PV_INTSTAT) & PV_INT_VFP_START) == 0)
         return 0;
@@ -95,19 +96,44 @@ static ULONG VBlank_Interrupt(REGARG(struct BoardInfo *bi, "a1"))
     PV_Write(PV_INTSTAT, PV_INT_VFP_START);     /* write 1 to clear */
     VC4Base->vc4_VBlankCount++;
 
-    /* Nobody waits and nothing is double buffered: switch the interrupt off until SetInterrupt() is called */
-    if ((bi->WaitQ.mlh_Head == NULL || bi->WaitQ.mlh_Head->mln_Succ == NULL) && bi->DoubleBufferList == NULL)
+    /* Nobody waits and nothing is double buffered: switch the interrupt off until SetInterrupt() is called or a
+       position of the sprite is queued. This comes before the sprite: a word queued after it switches the
+       interrupt on again, a word queued before it is written below. */
+    waiting = !((bi->WaitQ.mlh_Head == NULL || bi->WaitQ.mlh_Head->mln_Succ == NULL) && bi->DoubleBufferList == NULL);
+    if (!waiting)
         PV_Write(PV_INTEN, 0);
-    else
+
+    /* The flag is cleared before the word is read: a word queued meanwhile sets it again */
+    if (VC4Base->vc4_SpritePending)
+    {
+        VC4Base->vc4_SpritePending = FALSE;
+
+        if (VC4Base->vc4_MouseCoord != NULL)
+            wr32le(&VC4Base->vc4_MouseCoord[0], VC4Base->vc4_SpriteWord);
+    }
+
+    if (waiting)
         Cause(&bi->SoftInterrupt);
 
     return 1;
 }
 
+/* Switches the source on. The status is cleared only when the source was off: when it is on, a status already
+   set is a vertical blank about to be served, which must not be lost. */
+static void VBlank_Arm(void)
+{
+    if ((PV_Read(PV_INTEN) & PV_INT_VFP_START) == 0)
+    {
+        PV_Write(PV_INTSTAT, PV_INT_VFP_START);
+        PV_Write(PV_INTEN, PV_INT_VFP_START);
+    }
+}
+
 /* rtg.library enables the interrupt when a task starts to wait and disables it at the screen switches.
-   Returns the previous state. */
+   A position of the sprite which waits keeps it on until the next vertical blank. Returns the previous state. */
 static BOOL VBlank_SetInterrupt(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable, "d0"))
 {
+    struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     BOOL previous = (PV_Read(PV_INTEN) & PV_INT_VFP_START) != 0;
 
     if (0)
@@ -116,14 +142,29 @@ static BOOL VBlank_SetInterrupt(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL e
     }
 
     if (enable)
-    {
-        PV_Write(PV_INTSTAT, PV_INT_VFP_START);
-        PV_Write(PV_INTEN, PV_INT_VFP_START);
-    }
-    else
+        VBlank_Arm();
+    else if (!VC4Base->vc4_SpritePending)
         PV_Write(PV_INTEN, 0);
 
     return previous;
+}
+
+void VBlank_WriteSprite(struct VC4Base *VC4Base, ULONG word)
+{
+    if (VC4Base->vc4_MouseCoord == NULL)
+        return;
+
+    if (VC4Base->vc4_GIC400Base == NULL)
+    {
+        wr32le(&VC4Base->vc4_MouseCoord[0], word);
+        return;
+    }
+
+    /* The word first, then the flag, then the source: whatever the handler is doing, it sees the flag at its
+       next vertical blank at the latest */
+    VC4Base->vc4_SpriteWord = word;
+    VC4Base->vc4_SpritePending = TRUE;
+    VBlank_Arm();
 }
 
 BOOL VBlank_Init(struct BoardInfo *bi)

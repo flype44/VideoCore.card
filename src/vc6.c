@@ -18,6 +18,7 @@
 #include "boardinfo.h"
 #include "mbox.h"
 #include "buddyalloc.h"
+#include "vblank.h"
 
 UWORD VC6_CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD width, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
@@ -354,6 +355,7 @@ void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1")
             int mouse_pos = cnt;
             cnt = mouse_pos + 1;
 
+            VBlank_DropSprite(VC4Base);
             VC4Base->vc4_MouseCoord = &displist[cnt];
             wr32le(&displist[cnt++], VC6_SpriteWord(VC4Base));
             wr32le(&displist[cnt++], (VC6_SCALER_POS2_ALPHA_MODE_PIPELINE << VC6_SCALER_POS2_ALPHA_MODE_SHIFT) | VC6_SCALER_POS2_ALPHA(0xfff));
@@ -483,6 +485,7 @@ void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1")
             int mouse_pos = cnt;
             cnt = mouse_pos + 1;
 
+            VBlank_DropSprite(VC4Base);
             VC4Base->vc4_MouseCoord = &displist[cnt];
             wr32le(&displist[cnt++], VC6_SpriteWord(VC4Base));
             wr32le(&displist[cnt++], (VC6_SCALER_POS2_ALPHA_MODE_PIPELINE << VC6_SCALER_POS2_ALPHA_MODE_SHIFT) | VC6_SCALER_POS2_ALPHA(0xfff));
@@ -717,17 +720,10 @@ void VC6_SetSprite(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable, "d0"),
 
     VC4Base->vc4_SpriteVisible = enable;
 
-    if (enable) {
-        if (VC4Base->vc4_MouseCoord) {
-            wr32le(&VC4Base->vc4_MouseCoord[0], VC6_SpriteWord(VC4Base));
-        }
-    }
+    if (enable)
+        VBlank_WriteSprite(VC4Base, VC6_SpriteWord(VC4Base));
     else
-    {
-        if (VC4Base->vc4_MouseCoord) {
-            wr32le(&VC4Base->vc4_MouseCoord[0], VC6_POS0_X(-1) | VC6_POS0_Y(-1));
-        }
-    }
+        VBlank_WriteSprite(VC4Base, VC6_POS0_X(-1) | VC6_POS0_Y(-1));
 }
 
 void VC6_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0"), 
@@ -743,9 +739,7 @@ void VC6_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0
     VC4Base->vc4_MouseX = x;
     VC4Base->vc4_MouseY = y;
 
-    if (VC4Base->vc4_MouseCoord) {
-        wr32le(&VC4Base->vc4_MouseCoord[0], VC6_SpriteWord(VC4Base));
-    }
+    VBlank_WriteSprite(VC4Base, VC6_SpriteWord(VC4Base));
 }
 
 void VC6_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))

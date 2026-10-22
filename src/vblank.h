@@ -16,4 +16,18 @@
 BOOL VBlank_Init(struct BoardInfo *bi);
 void VBlank_Exit(struct VC4Base *VC4Base);
 
+/*
+    Writes the position word of the sprite plane (vc4_MouseCoord[0]). The HVS draws a shifted copy of the sprite
+    for a frame when that word changes in the middle of one, so with the interrupt the word waits for the next
+    vertical blank and is written by the handler, the latest one wins. Without the interrupt it is written at once.
+*/
+void VBlank_WriteSprite(struct VC4Base *VC4Base, ULONG word);
+
+/* Forgets a word which waits: called when vc4_MouseCoord moves to a new display list, which gets the current
+   position of the sprite anyway */
+static inline void VBlank_DropSprite(struct VC4Base *VC4Base)
+{
+    VC4Base->vc4_SpritePending = FALSE;
+}
+
 #endif /* _VBLANK_H */
